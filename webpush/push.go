@@ -27,16 +27,11 @@ const (
 	tempGcmURL = "https://gcm-http.googleapis.com/gcm"
 )
 
-type authToken struct {
-	Pattern string
-	Token   string
-}
-
-var authTokens []authToken
-
 // NewPushRequest creates a valid Web Push HTTP request for sending a message
-// to a subscriber.
-func NewPushRequest(sub Subscription, message string, token string) (*http.Request, error) {
+// to a subscriber. If the push service requires an authentication header
+// (notably Google Cloud Messaging, used by Chrome) then you can add that as the
+// token parameter.
+func NewPushRequest(sub *Subscription, message string, token string) (*http.Request, error) {
 	payload, err := Encrypt(sub, message)
 	if err != nil {
 		return nil, err
@@ -63,9 +58,12 @@ func NewPushRequest(sub Subscription, message string, token string) (*http.Reque
 	return req, nil
 }
 
-// SendWebPush sends a message using the Web Push protocol to the recipient
-// identified by the given subscription object.
-func SendWebPush(client *http.Client, sub Subscription, message, token string) (*http.Response, error) {
+// Send a message using the Web Push protocol to the recipient identified by the
+// given subscription object. If the client is nil then the default HTTP client
+// will be used. If the push service requires an authentication header (notably
+// Google Cloud Messaging, used by Chrome) then you can add that as the token
+// parameter.
+func Send(client *http.Client, sub *Subscription, message, token string) (*http.Response, error) {
 	if client == nil {
 		client = http.DefaultClient
 	}

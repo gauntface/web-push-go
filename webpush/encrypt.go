@@ -14,6 +14,31 @@
 
 // Package webpush provides helper functions for sending encrpyted payloads
 // using the Web Push protocol.
+//
+// Sending a message:
+//   import (
+//     "strings"
+//     "github.com/googlechrome/push-encryption-go/webpush"
+//   )
+//
+//   func main() {
+//     // The values that make up the Subscription struct come from the browser
+//     sub := &webpush.Subscription{endpoint, key, auth}
+//     webpush.Send(nil, sub, "Yay! Web Push!", nil)
+//   }
+//
+// You can turn a JSON string representation of a PushSubscription object you
+// collected from the browser into a Subscription struct with a helper function.
+//
+//   var exampleJSON = []byte(`{"endpoint": "...", "keys": {"p256dh": "...", "auth": "..."}}`)
+//   sub, err := SubscriptionFromJSON(exampleJSON)
+//
+// If the push service requires an authentication header (notably Google Cloud
+// Messaging, used by Chrome) then you can add that as a fourth parameter:
+//
+//   if strings.Contains(sub.Endpoint, "https://android.googleapis.com/gcm/send/") {
+//     webpush.Send(nil, sub, "A message for Chrome", myGCMKey)
+//   }
 package webpush
 
 import (
@@ -25,6 +50,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 )
 
@@ -58,17 +84,43 @@ var (
 	}
 )
 
-// SubscriptionKey represents the keys property of a subscription
-type SubscriptionKey struct {
-	P256dh string `json:"p256dh"`
-	Auth   string `json:"auth"`
+// Subscription holds the useful values from a PushSubscription object acquired
+// from the browser
+type Subscription struct {
+	// Endpoint is the URL to send the Web Push message to. Comes from the
+	// endpoint field of the PushSubscription.
+	Endpoint string
+	// Key is the client's public key. From the keys.p256dh field.
+	Key []byte
+	// Auth is a value used by the client to validate the encryption. From the
+	// keys.auth field.
+	Auth []byte
 }
 
-// Subscription is a representation of a PushSubscription object acquired from
-// the browser
-type Subscription struct {
-	Endpoint string          `json:"endpoint"`
-	Keys     SubscriptionKey `json:"keys"`
+// SubscriptionFromJSON is a convenience function that takes a JSON encoded
+// PushSubscription object acquired from the browser and returns a pointer to a
+// Subscription
+func SubscriptionFromJSON(b []byte) (*Subscription, error) {
+	var sub struct {
+		Endpoint string
+		Keys     struct {
+			P256dh string
+			Auth   string
+		}
+	}
+	json.Unmarshal(b, &sub)
+
+	key, err := base64.URLEncoding.DecodeString(sub.Keys.P256dh)
+	if err != nil {
+		return nil, err
+	}
+
+	auth, err := base64.URLEncoding.DecodeString(sub.Keys.Auth)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Subscription{sub.Endpoint, key, auth}, nil
 }
 
 // EncryptionResult stores the result of encrypting a message. The ciphertext is
@@ -82,23 +134,13 @@ type EncryptionResult struct {
 
 // Encrypt a message such that it can be sent using the Web Push protocol.
 // You can find out more about the various pieces:
-// - https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding
-// - https://en.wikipedia.org/wiki/Elliptic_curve_Diffie%E2%80%93Hellman
-// - https://tools.ietf.org/html/draft-ietf-webpush-encryption
-func Encrypt(sub Subscription, message string) (*EncryptionResult, error) {
+//    - https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding
+//    - https://en.wikipedia.org/wiki/Elliptic_curve_Diffie%E2%80%93Hellman
+//    - https://tools.ietf.org/html/draft-ietf-webpush-encryption
+func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	plaintext := []byte(message)
 	if len(plaintext) > maxPayloadLength {
 		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
-	}
-
-	clientPublicKey, err := base64.URLEncoding.DecodeString(sub.Keys.P256dh)
-	if err != nil {
-		return nil, err
-	}
-
-	auth, err := base64.URLEncoding.DecodeString(sub.Keys.Auth)
-	if err != nil {
-		return nil, err
 	}
 
 	salt, err := randomSalt()
@@ -112,15 +154,15 @@ func Encrypt(sub Subscription, message string) (*EncryptionResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	secret := sharedSecret(curve, clientPublicKey, serverPrivateKey)
+	secret := sharedSecret(curve, sub.Key, serverPrivateKey)
 
 	// Derive a Pseudo-Random Key (prk) that can be used to further derive our
 	// other encryption parameters. These derivations are described in
 	// https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding-00
-	prk := hkdf(auth, secret, authInfo, 32)
+	prk := hkdf(sub.Auth, secret, authInfo, 32)
 
 	// Derive the Content Encryption Key and nonce
-	ctx := newContext(clientPublicKey, serverPublicKey)
+	ctx := newContext(sub.Key, serverPublicKey)
 	cek := newCEK(ctx, salt, prk)
 	nonce := newNonce(ctx, salt, prk)
 
