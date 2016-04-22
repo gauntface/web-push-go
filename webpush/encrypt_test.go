@@ -58,6 +58,49 @@ func stubFuncs(salt func() ([]byte, error), key func() ([]byte, []byte, error)) 
 	}
 }
 
+func TestSubscriptionFromJSON(t *testing.T) {
+	_, err := SubscriptionFromJSON(subscriptionJSON)
+	if err != nil {
+		t.Errorf("Failed to parse main sample subscription: %v", err)
+	}
+
+	// key and auth values are valid Base64 with or without padding
+	_, err = SubscriptionFromJSON([]byte(`{
+		"endpoint": "https://example.com",
+		"keys": {
+			"p256dh": "AAAA",
+			"auth": "AAAA"
+		}
+	}`))
+	if err != nil {
+		t.Errorf("Failed to parse subscription with 4-character values: %v", err)
+	}
+
+	// key and auth values are padded Base64
+	_, err = SubscriptionFromJSON([]byte(`{
+		"endpoint": "https://example.com",
+		"keys": {
+			"p256dh": "AA==",
+			"auth": "AAA="
+		}
+	}`))
+	if err != nil {
+		t.Errorf("Failed to parse subscription with padded values: %v", err)
+	}
+
+	// key and auth values are unpadded Base64
+	_, err = SubscriptionFromJSON([]byte(`{
+		"endpoint": "https://example.com",
+		"keys": {
+			"p256dh": "AA",
+			"auth": "AAA"
+		}
+	}`))
+	if err != nil {
+		t.Errorf("Failed to parse subscription with unpadded values: %v", err)
+	}
+}
+
 func TestEncrypt(t *testing.T) {
 	sub, err := SubscriptionFromJSON(subscriptionJSON)
 	if err != nil {
