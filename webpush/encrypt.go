@@ -52,6 +52,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 const (
@@ -110,12 +111,16 @@ func SubscriptionFromJSON(b []byte) (*Subscription, error) {
 	}
 	json.Unmarshal(b, &sub)
 
-	key, err := base64.URLEncoding.DecodeString(sub.Keys.P256dh)
+	b64 := base64.URLEncoding.WithPadding(base64.NoPadding)
+
+	// Chrome < 52 incorrectly adds padding when Base64 encoding the values, so
+	// we need to strip that out
+	key, err := b64.DecodeString(strings.TrimRight(sub.Keys.P256dh, "="))
 	if err != nil {
 		return nil, err
 	}
 
-	auth, err := base64.URLEncoding.DecodeString(sub.Keys.Auth)
+	auth, err := b64.DecodeString(strings.TrimRight(sub.Keys.Auth, "="))
 	if err != nil {
 		return nil, err
 	}

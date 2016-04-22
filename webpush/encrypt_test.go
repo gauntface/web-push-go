@@ -27,7 +27,7 @@ var (
 	// message using the mock salt and keys and the fake subscription.
 	expectedCiphertextHex = "c29da35b8ad084b3cda4b3c20bd9d1bb9098dfb5c8e7c2e3a67fe7c91ff887b72f"
 	// A fake subscription created with random key and auth values
-	subscriptionJSON      = []byte(`{
+	subscriptionJSON = []byte(`{
 		"endpoint": "https://example.com/",
 		"keys": {
 			"p256dh": "BCXJI0VW7evda9ldlo18MuHhgQVxWbd0dGmUfpQedaD7KDjB8sGWX5iiP7lkjxi-A02b8Fi3BMWWLoo3b4Tdl-c=",
@@ -55,6 +55,49 @@ func stubFuncs(salt func() ([]byte, error), key func() ([]byte, []byte, error)) 
 	randomSalt, randomKey = salt, key
 	return func() {
 		randomSalt, randomKey = origSalt, origKey
+	}
+}
+
+func TestSubscriptionFromJSON(t *testing.T) {
+	_, err := SubscriptionFromJSON(subscriptionJSON)
+	if err != nil {
+		t.Errorf("Failed to parse main sample subscription: %v", err)
+	}
+
+	// key and auth values are valid Base64 with or without padding
+	_, err = SubscriptionFromJSON([]byte(`{
+		"endpoint": "https://example.com",
+		"keys": {
+			"p256dh": "AAAA",
+			"auth": "AAAA"
+		}
+	}`))
+	if err != nil {
+		t.Errorf("Failed to parse subscription with 4-character values: %v", err)
+	}
+
+	// key and auth values are padded Base64
+	_, err = SubscriptionFromJSON([]byte(`{
+		"endpoint": "https://example.com",
+		"keys": {
+			"p256dh": "AA==",
+			"auth": "AAA="
+		}
+	}`))
+	if err != nil {
+		t.Errorf("Failed to parse subscription with padded values: %v", err)
+	}
+
+	// key and auth values are unpadded Base64
+	_, err = SubscriptionFromJSON([]byte(`{
+		"endpoint": "https://example.com",
+		"keys": {
+			"p256dh": "AA",
+			"auth": "AAA"
+		}
+	}`))
+	if err != nil {
+		t.Errorf("Failed to parse subscription with unpadded values: %v", err)
 	}
 }
 
