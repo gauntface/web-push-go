@@ -27,7 +27,7 @@ var (
 	// message using the mock salt and keys and the fake subscription.
 	expectedCiphertextHex = "c29da35b8ad084b3cda4b3c20bd9d1bb9098dfb5c8e7c2e3a67fe7c91ff887b72f"
 	// A fake subscription created with random key and auth values
-	subscriptionJSON      = []byte(`{
+	subscriptionJSON = []byte(`{
 		"endpoint": "https://example.com/",
 		"keys": {
 			"p256dh": "BCXJI0VW7evda9ldlo18MuHhgQVxWbd0dGmUfpQedaD7KDjB8sGWX5iiP7lkjxi-A02b8Fi3BMWWLoo3b4Tdl-c=",
