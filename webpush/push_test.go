@@ -42,6 +42,10 @@ func TestSendWebPush(t *testing.T) {
 			t.Errorf("Expected body to be length %d, was %d", expectedLength, len(body))
 		}
 
+		if request.Header.Get("TTL") == "" {
+			t.Error("Expected TTL header to be set")
+		}
+
 		if request.Header.Get("Content-Encoding") != "aesgcm" {
 			t.Errorf("Expected Content-Encoding header to be aesgcm, got %v", request.Header.Get("Content-Encoding"))
 		}
