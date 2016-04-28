@@ -15,26 +15,15 @@
 package webpush
 
 import (
+	"encoding/base64"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 )
 
-type FakeTransport struct {
-	URL *url.URL
-}
-
-func (transport *FakeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.URL.Scheme = transport.URL.Scheme
-	req.URL.Host = transport.URL.Host
-	return http.DefaultTransport.RoundTrip(req)
-}
-
 func TestSendWebPush(t *testing.T) {
-
 	// Test server checks that the request is well-formed
 	ts := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(200)
@@ -67,28 +56,44 @@ func TestSendWebPush(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	serverURL, _ := url.Parse(ts.URL)
-
-	// Make a fake transport that redirects all requests to the fake server
-	transport := &FakeTransport{serverURL}
-	client := &http.Client{Transport: transport}
-
-	subscriptionJSON := []byte(`{
-		"endpoint": "https://example.com/",
-		"keys": {
-			"p256dh": "BCXJI0VW7evda9ldlo18MuHhgQVxWbd0dGmUfpQedaD7KDjB8sGWX5iiP7lkjxi-A02b8Fi3BMWWLoo3b4Tdl-c=",
-			"auth": "WPF9D0bTVZCV2pXSgj6Zug=="
-		}
-	}`)
-	message := "I am the walrus"
-
-	sub, err := SubscriptionFromJSON(subscriptionJSON)
+	key, err := base64.URLEncoding.DecodeString("BCXJI0VW7evda9ldlo18MuHhgQVxWbd0dGmUfpQedaD7KDjB8sGWX5iiP7lkjxi-A02b8Fi3BMWWLoo3b4Tdl-c=")
 	if err != nil {
-		t.Error("Couldn't decode JSON subscription")
+		t.Error(err)
+	}
+	auth, err := base64.URLEncoding.DecodeString("WPF9D0bTVZCV2pXSgj6Zug==")
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, err = Send(client, sub, message, "")
-	if err != nil {
+	sub := &Subscription{ts.URL, key, auth}
+	message := "I am the walrus"
+
+	if _, err = Send(nil, sub, message, ""); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestSendTickle(t *testing.T) {
+	// Test server checks that the request is well-formed
+	ts := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.WriteHeader(200)
+
+		defer request.Body.Close()
+
+		body, err := ioutil.ReadAll(request.Body)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if len(body) != 0 {
+			t.Errorf("Expected body to be length 0, was %d", len(body))
+		}
+	}))
+	defer ts.Close()
+
+	sub := &Subscription{Endpoint: ts.URL}
+
+	if _, err := Send(nil, sub, "", ""); err != nil {
 		t.Error(err)
 	}
 }

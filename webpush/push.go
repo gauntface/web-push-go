@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 )
@@ -32,28 +33,35 @@ const (
 // (notably Google Cloud Messaging, used by Chrome) then you can add that as the
 // token parameter.
 func NewPushRequest(sub *Subscription, message string, token string) (*http.Request, error) {
-	payload, err := Encrypt(sub, message)
-	if err != nil {
-		return nil, err
-	}
-
 	// If the endpoint is GCM then we temporarily need to rewrite it, as not all
 	// GCM servers support the Web Push protocol. This should go away in the
 	// future.
 	endpoint := strings.Replace(sub.Endpoint, gcmURL, tempGcmURL, 1)
 
-	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(payload.Ciphertext))
+	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Add("Encryption", headerField("salt", payload.Salt))
-	req.Header.Add("Crypto-Key", headerField("dh", payload.ServerPublicKey))
-	req.Header.Add("Content-Encoding", "aesgcm")
-
 	if token != "" {
 		req.Header.Add("Authorization", fmt.Sprintf(`key=%s`, token))
 	}
+
+	// If there is no payload then we don't actually need encryption
+	if message == "" {
+		return req, nil
+	}
+
+	payload, err := Encrypt(sub, message)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Body = ioutil.NopCloser(bytes.NewReader(payload.Ciphertext))
+	req.ContentLength = int64(len(payload.Ciphertext))
+	req.Header.Add("Encryption", headerField("salt", payload.Salt))
+	req.Header.Add("Crypto-Key", headerField("dh", payload.ServerPublicKey))
+	req.Header.Add("Content-Encoding", "aesgcm")
 
 	return req, nil
 }

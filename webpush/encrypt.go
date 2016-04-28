@@ -109,7 +109,9 @@ func SubscriptionFromJSON(b []byte) (*Subscription, error) {
 			Auth   string
 		}
 	}
-	json.Unmarshal(b, &sub)
+	if err := json.Unmarshal(b, &sub); err != nil {
+		return nil, err
+	}
 
 	b64 := base64.URLEncoding.WithPadding(base64.NoPadding)
 
@@ -146,6 +148,14 @@ func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	plaintext := []byte(message)
 	if len(plaintext) > maxPayloadLength {
 		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
+	}
+
+	if len(sub.Key) == 0 {
+		return nil, fmt.Errorf("Subscription must include the client's public key")
+	}
+
+	if len(sub.Auth) == 0 {
+		return nil, fmt.Errorf("Subscription must include the client's auth value")
 	}
 
 	salt, err := randomSalt()
