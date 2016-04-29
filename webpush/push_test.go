@@ -92,6 +92,10 @@ func TestSendTickle(t *testing.T) {
 		if len(body) != 0 {
 			t.Errorf("Expected body to be length 0, was %d", len(body))
 		}
+
+		if request.Header.Get("TTL") == "" {
+			t.Error("Expected TTL header to be set")
+		}
 	}))
 	defer ts.Close()
 
