@@ -43,6 +43,9 @@ func NewPushRequest(sub *Subscription, message string, token string) (*http.Requ
 		return nil, err
 	}
 
+	// TODO: Make the TTL variable
+	req.Header.Add("TTL", "0")
+
 	if token != "" {
 		req.Header.Add("Authorization", fmt.Sprintf(`key=%s`, token))
 	}
