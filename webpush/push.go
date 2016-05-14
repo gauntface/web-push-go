@@ -21,18 +21,21 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"strconv"
 )
 
 const (
 	gcmURL     = "https://android.googleapis.com/gcm/send"
 	tempGcmURL = "https://gcm-http.googleapis.com/gcm"
+	minimumTTL = 0
+	maximumTTL = 2419200
 )
 
 // NewPushRequest creates a valid Web Push HTTP request for sending a message
 // to a subscriber. If the push service requires an authentication header
 // (notably Google Cloud Messaging, used by Chrome) then you can add that as the
 // token parameter.
-func NewPushRequest(sub *Subscription, message string, token string) (*http.Request, error) {
+func NewPushRequest(sub *Subscription, message string, token string, TTL int) (*http.Request, error) {
 	// If the endpoint is GCM then we temporarily need to rewrite it, as not all
 	// GCM servers support the Web Push protocol. This should go away in the
 	// future.
@@ -44,7 +47,7 @@ func NewPushRequest(sub *Subscription, message string, token string) (*http.Requ
 	}
 
 	// TODO: Make the TTL variable
-	req.Header.Add("TTL", "0")
+	req.Header.Add("TTL", strconv.Itoa(TTL))
 
 	if token != "" {
 		req.Header.Add("Authorization", fmt.Sprintf(`key=%s`, token))
@@ -73,13 +76,31 @@ func NewPushRequest(sub *Subscription, message string, token string) (*http.Requ
 // given subscription object. If the client is nil then the default HTTP client
 // will be used. If the push service requires an authentication header (notably
 // Google Cloud Messaging, used by Chrome) then you can add that as the token
-// parameter.
-func Send(client *http.Client, sub *Subscription, message, token string) (*http.Response, error) {
+// parameter. 'extra' can be used to pass multiple parameters like TTL,
+// collapse_key or dry_run(as documented by gcm http-server-ref) without much
+// changes in Send signature.
+func Send(client *http.Client, sub *Subscription, message, token string, extra map[string]interface{}) (*http.Response, error) {
 	if client == nil {
 		client = http.DefaultClient
 	}
 
-	req, err := NewPushRequest(sub, message, token)
+	// Define default TTL as maximumTTL because GCM stores notifications for 4
+	// weeks if no time_to_live parameter is passed with request.
+	TTL := maximumTTL
+
+	if ttl, ok := extra["TTL"]; ok {
+		if ttlInt, found := ttl.(int); found {
+			if ttlInt > maximumTTL || ttlInt < minimumTTL {
+				return nil, fmt.Errorf("TTL should be between %d and %d, was %d", minimumTTL, maximumTTL, ttlInt)
+			} else {
+				TTL = ttlInt
+			}
+		} else {
+			return nil, fmt.Errorf("TTL should be integer between %d and %d", minimumTTL, maximumTTL)
+		}
+	}
+
+	req, err := NewPushRequest(sub, message, token, TTL)
 	if err != nil {
 		return nil, err
 	}
