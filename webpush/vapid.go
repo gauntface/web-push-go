@@ -15,31 +15,29 @@
 package webpush
 
 import (
-	"crypto/elliptic"
-	"math/big"
-	"crypto/ecdsa"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"time"
+	"math/big"
 	"net/url"
+	"time"
 )
-
 
 var (
 	vapidPrefix = []byte("eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.")
-	dot = []byte(".")
+	dot         = []byte(".")
 )
 
 type jwtPrefix struct {
-
 }
 
 type jwtBody struct {
 	Aud string `json:"aud"`
 	Sub string `json:"sub",omitempty`
-	Exp int64 `json:"exp"`
+	Exp int64  `json:"exp"`
 }
 
 // Vapid represents a sender identity.
@@ -70,7 +68,7 @@ func (vapid *Vapid) Token(aud string) (res string) {
 	t64 := make([]byte, enc.EncodedLen(len(t)))
 	enc.Encode(t64, t)
 
-	token := make([]byte, len(t) + len(vapidPrefix) + 100)
+	token := make([]byte, len(t)+len(vapidPrefix)+100)
 	token = append(token[:0], vapidPrefix...)
 	token = append(token, t64...)
 
@@ -80,22 +78,21 @@ func (vapid *Vapid) Token(aud string) (res string) {
 	if r, s, err := ecdsa.Sign(rand.Reader, vapid.pkey, hasher.Sum(nil)); err == nil {
 		// Vapid key is 32 bytes
 		keyBytes := 32
-		sig := make([]byte, 2 *keyBytes)
+		sig := make([]byte, 2*keyBytes)
 
 		rBytes := r.Bytes()
 		rBytesPadded := make([]byte, keyBytes)
-		copy(rBytesPadded[keyBytes - len(rBytes):], rBytes)
+		copy(rBytesPadded[keyBytes-len(rBytes):], rBytes)
 
 		sBytes := s.Bytes()
 		sBytesPadded := make([]byte, keyBytes)
-		copy(sBytesPadded[keyBytes - len(sBytes):], sBytes)
+		copy(sBytesPadded[keyBytes-len(sBytes):], sBytes)
 
 		sig = append(sig[:0], rBytesPadded...)
 		sig = append(sig, sBytesPadded...)
 
 		sigB64 := make([]byte, enc.EncodedLen(len(sig)))
 		enc.Encode(sigB64, sig)
-
 
 		token = append(token, dot...)
 		token = append(token, sigB64...)
@@ -104,10 +101,9 @@ func (vapid *Vapid) Token(aud string) (res string) {
 	return
 }
 
-
 // NewVapid constructs a new Vapid generator from EC256 public and private keys,
 // in uncompressed format
-func NewVapid(publicUncomp, privateUncom []byte) (v *Vapid){
+func NewVapid(publicUncomp, privateUncom []byte) (v *Vapid) {
 	// Public key is a point, starting with 0x4
 	x, y := elliptic.Unmarshal(curve, publicUncomp)
 	d := new(big.Int).SetBytes(privateUncom)
@@ -119,7 +115,7 @@ func NewVapid(publicUncomp, privateUncom []byte) (v *Vapid){
 
 	v = &Vapid{
 		PublicKey: pub64,
-		pkey: &pkey}
+		pkey:      &pkey}
 
 	return
 }

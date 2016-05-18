@@ -81,7 +81,6 @@ func NewVapidRequest(sub *Subscription, message string, vapid *Vapid) (*http.Req
 		return nil, err
 	}
 
-
 	tok := vapid.Token(sub.Endpoint)
 	req.Header.Add("Authorization", fmt.Sprintf(`Bearer %s`, tok))
 
@@ -99,7 +98,7 @@ func NewVapidRequest(sub *Subscription, message string, vapid *Vapid) (*http.Req
 	req.ContentLength = int64(len(payload.Ciphertext))
 	req.Header.Add("Encryption", headerField("salt", payload.Salt))
 	req.Header.Add("Crypto-Key",
-		headerField("dh", payload.ServerPublicKey) + "; p256ecdsa=" +
+		headerField("dh", payload.ServerPublicKey)+"; p256ecdsa="+
 			string(vapid.PublicKey))
 	req.Header.Add("Content-Encoding", "aesgcm")
 

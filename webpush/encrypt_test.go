@@ -17,10 +17,10 @@ package webpush
 import (
 	"bytes"
 	"crypto/elliptic"
+	"encoding/base64"
 	"encoding/hex"
 	"strings"
 	"testing"
-	"encoding/base64"
 )
 
 var (
@@ -109,8 +109,8 @@ func Test2Way(t *testing.T) {
 	auth, err := b64.DecodeString("68zcbmaevQa7MS7aXXRX8Q")
 	sub := &Subscription{
 		Endpoint: "https://foo.com",
-		Auth: auth,
-		Key: subPub,
+		Auth:     auth,
+		Key:      subPub,
 	}
 	result, err := Encrypt(sub, message)
 	if err != nil {
