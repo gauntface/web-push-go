@@ -36,7 +36,7 @@ type jwtPrefix struct {
 
 type jwtBody struct {
 	Aud string `json:"aud"`
-	Sub string `json:"sub",omitempty`
+	Sub string `json:"sub,omitempty"`
 	Exp int64  `json:"exp"`
 }
 
@@ -107,8 +107,8 @@ func NewVapid(publicUncomp, privateUncom []byte) (v *Vapid) {
 	// Public key is a point, starting with 0x4
 	x, y := elliptic.Unmarshal(curve, publicUncomp)
 	d := new(big.Int).SetBytes(privateUncom)
-	pubkey := ecdsa.PublicKey{curve, x, y}
-	pkey := ecdsa.PrivateKey{pubkey, d}
+	pubkey := ecdsa.PublicKey{Curve: curve, X: x, Y: y}
+	pkey := ecdsa.PrivateKey{PublicKey: pubkey, D: d}
 	enc := base64.RawURLEncoding
 	pub64 := make([]byte, enc.EncodedLen(len(publicUncomp)))
 	enc.Encode(pub64, publicUncomp)
