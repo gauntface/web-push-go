@@ -63,8 +63,8 @@ var (
 	authInfo = []byte("Content-Encoding: auth\x00")
 	curve    = elliptic.P256()
 
-	// Generate a random key pair to be used for the encryption. Overridable for
-	// testing.
+	// Generate a random EC256 key pair. Overridable for testing.
+	// Returns priv as a 16-byte point, and pub in uncompressed format, 33 bytes.
 	randomKey = func() (priv []byte, pub []byte, err error) {
 		priv, x, y, err := elliptic.GenerateKey(curve, rand.Reader)
 		if err != nil {
@@ -169,15 +169,15 @@ func Decrypt(sub *Subscription, crypt *EncryptionResult, subPrivate []byte) (pla
 func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	plaintext := []byte(message)
 	if len(plaintext) > maxPayloadLength {
-		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
+		return nil, fmt.Errorf("payload is too large. The max number of bytes is %d, input is %d bytes ", maxPayloadLength, len(plaintext))
 	}
 
 	if len(sub.Key) == 0 {
-		return nil, fmt.Errorf("Subscription must include the client's public key")
+		return nil, fmt.Errorf("subscription must include the client's public key")
 	}
 
 	if len(sub.Auth) == 0 {
-		return nil, fmt.Errorf("Subscription must include the client's auth value")
+		return nil, fmt.Errorf("subscription must include the client's auth value")
 	}
 
 	salt, err := randomSalt()

@@ -30,6 +30,7 @@ func TestChrome(t *testing.T) {
 	hex.Decode(vpriv, vapidPriv)
 
 	vapid := NewVapid(vpub, vpriv)
+	vapid.Sub = "test@example.com"
 	req, err := NewVapidRequest(sub, message, vapid)
 	dmpReq, err := httputil.DumpRequest(req, true)
 	t.Log(string(dmpReq))

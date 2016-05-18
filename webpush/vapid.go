@@ -22,12 +22,13 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"time"
+	"net/url"
 )
 
 
 var (
-	//curve = elliptic.P256()
-	vapid_prefix = []byte("eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.")
+	vapidPrefix = []byte("eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.")
 	dot = []byte(".")
 )
 
@@ -37,7 +38,7 @@ type jwtPrefix struct {
 
 type jwtBody struct {
 	Aud string `json:"aud"`
-	Sub string `json:"sub"`
+	Sub string `json:"sub",omitempty`
 	Exp int64 `json:"exp"`
 }
 
@@ -49,21 +50,28 @@ type Vapid struct {
 
 	// The private key used to sign tokens
 	pkey *ecdsa.PrivateKey
+
+	// Sub should be an email or URL, for identification
+	Sub string
 }
 
-// Create a token with the specified audience, subject and expiry
-func (vapid *Vapid) Token(aud, sub string, exp int64) (res string, err error) {
-	t, _ := json.Marshal(
-		jwtBody{Aud: aud,
-			Sub: sub,
-			Exp: exp})
+// Token creates a token with the specified endpoint, using configured Sub id
+// and a default expiration (1h)
+func (vapid *Vapid) Token(aud string) (res string) {
+	url, _ := url.Parse(aud)
+	jwt := jwtBody{Aud: "https://" + url.Host}
+	if vapid.Sub != "" {
+		jwt.Sub = vapid.Sub
+	}
+	jwt.Exp = int64(time.Now().Unix() + 3600)
+	t, _ := json.Marshal(jwt)
 	enc := base64.RawURLEncoding
 
 	t64 := make([]byte, enc.EncodedLen(len(t)))
 	enc.Encode(t64, t)
 
-	token := make([]byte, len(t) + len(vapid_prefix) + 100)
-	token = append(token[:0], vapid_prefix...)
+	token := make([]byte, len(t) + len(vapidPrefix) + 100)
+	token = append(token[:0], vapidPrefix...)
 	token = append(token, t64...)
 
 	hasher := crypto.SHA256.New()

@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"time"
 )
 
 const (
@@ -70,26 +69,20 @@ func NewPushRequest(sub *Subscription, message string, token string) (*http.Requ
 	return req, nil
 }
 
+// NewVapidRequest creates a valid Web Push HTTP request for sending a message
+// to a subscriber, using Vapid authentication. You can add more headers to
+// configure collapsing, TTL.
 func NewVapidRequest(sub *Subscription, message string, vapid *Vapid) (*http.Request, error) {
 	// If the endpoint is GCM then we temporarily need to rewrite it, as not all
 	// GCM servers support the Web Push protocol. This should go away in the
 	// future.
-	endpoint := strings.Replace(sub.Endpoint, gcmURL, "https://jmt17.google.com/gcm/demo-webpush-00", 1)
-
-	req, err := http.NewRequest("POST", endpoint, nil)
+	req, err := http.NewRequest("POST", sub.Endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Make the TTL variable
-	req.Header.Add("TTL", "0")
 
-
-	expS := int64(time.Now().Unix() + 3600)
-
-	tok, _ := vapid.Token("https://jmt17.google.com",
-		"mailto:costin@gmail.com",
-		expS)
+	tok := vapid.Token(sub.Endpoint)
 	req.Header.Add("Authorization", fmt.Sprintf(`Bearer %s`, tok))
 
 	// If there is no payload then we don't actually need encryption
