@@ -57,7 +57,8 @@ type Vapid struct {
 // and a default expiration (1h)
 func (vapid *Vapid) Token(aud string) (res string) {
 	url, _ := url.Parse(aud)
-	jwt := jwtBody{Aud: "https://" + url.Host}
+	host := url.Host
+	jwt := jwtBody{Aud: "https://" + host}
 	if vapid.Sub != "" {
 		jwt.Sub = vapid.Sub
 	}

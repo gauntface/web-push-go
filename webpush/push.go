@@ -116,6 +116,8 @@ func Send(client *http.Client, sub *Subscription, message, token string) (*http.
 	}
 
 	req, err := NewPushRequest(sub, message, token)
+	// Default TTL
+	req.Header.Add("ttl", "0")
 	if err != nil {
 		return nil, err
 	}
@@ -125,5 +127,5 @@ func Send(client *http.Client, sub *Subscription, message, token string) (*http.
 
 // A helper for creating the value part of the HTTP encryption headers
 func headerField(headerType string, value []byte) string {
-	return fmt.Sprintf(`%s=%s`, headerType, base64.URLEncoding.EncodeToString(value))
+	return fmt.Sprintf(`%s=%s`, headerType, base64.RawURLEncoding.EncodeToString(value))
 }
