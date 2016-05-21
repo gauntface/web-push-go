@@ -168,6 +168,22 @@ func Decrypt(sub *Subscription, crypt *EncryptionResult, subPrivate []byte) (pla
 //    - https://tools.ietf.org/html/draft-ietf-webpush-encryption
 func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	plaintext := []byte(message)
+
+	// Use ECDH to derive a shared secret between us and the client. We generate
+	// a fresh private/public key pair at random every time we encrypt.
+	serverPrivateKey, serverPublicKey, err := randomKey()
+	if err != nil {
+		return nil, err
+	}
+
+	return EncryptWithTempKey(sub, plaintext, serverPrivateKey, serverPublicKey)
+}
+
+// Encrypt a message using Web Push protocol, reusing the temp key.
+// A new salt will be used. This is ~20% faster.
+func EncryptWithTempKey(sub *Subscription, plaintext []byte,
+	serverPrivateKey, serverPublicKey []byte) (*EncryptionResult, error) {
+
 	if len(plaintext) > maxPayloadLength {
 		return nil, fmt.Errorf("payload is too large. The max number of bytes is %d, input is %d bytes ", maxPayloadLength, len(plaintext))
 	}
@@ -179,18 +195,11 @@ func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	if len(sub.Auth) == 0 {
 		return nil, fmt.Errorf("subscription must include the client's auth value")
 	}
-
 	salt, err := randomSalt()
 	if err != nil {
 		return nil, err
 	}
 
-	// Use ECDH to derive a shared secret between us and the client. We generate
-	// a fresh private/public key pair at random every time we encrypt.
-	serverPrivateKey, serverPublicKey, err := randomKey()
-	if err != nil {
-		return nil, err
-	}
 	secret := sharedSecret(curve, sub.Key, serverPrivateKey)
 
 	// Derive a Pseudo-Random Key (prk) that can be used to further derive our

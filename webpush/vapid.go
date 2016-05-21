@@ -42,9 +42,10 @@ type jwtBody struct {
 
 // Vapid represents a sender identity.
 type Vapid struct {
-	// The EC256 public key. This value should be used in 'subscribe' requests
-	// and is included a p256ecdsa in the Crypto-Key header.
-	PublicKey []byte
+	// The EC256 public key, base64 urlsafe, uncompressed. This value should be
+	// used in 'subscribe' requests and is included as p256ecdsa in
+	// the Crypto-Key header.
+	PublicKey string
 
 	// The private key used to sign tokens
 	pkey *ecdsa.PrivateKey
@@ -53,8 +54,10 @@ type Vapid struct {
 	Sub string
 }
 
+// TODO: cache for tokens
+
 // Token creates a token with the specified endpoint, using configured Sub id
-// and a default expiration (1h)
+// and a default expiration (1h).
 func (vapid *Vapid) Token(aud string) (res string) {
 	url, _ := url.Parse(aud)
 	host := url.Host
@@ -103,19 +106,18 @@ func (vapid *Vapid) Token(aud string) (res string) {
 }
 
 // NewVapid constructs a new Vapid generator from EC256 public and private keys,
-// in uncompressed format
-func NewVapid(publicUncomp, privateUncom []byte) (v *Vapid) {
-	// Public key is a point, starting with 0x4
+// in uncompressed format.
+func NewVapid(publicKey, privateKey string) (v *Vapid) {
+	publicUncomp, _ := base64.RawURLEncoding.DecodeString(publicKey)
+	privateUncomp, _ := base64.RawURLEncoding.DecodeString(privateKey)
+
 	x, y := elliptic.Unmarshal(curve, publicUncomp)
-	d := new(big.Int).SetBytes(privateUncom)
+	d := new(big.Int).SetBytes(privateUncomp)
 	pubkey := ecdsa.PublicKey{Curve: curve, X: x, Y: y}
 	pkey := ecdsa.PrivateKey{PublicKey: pubkey, D: d}
-	enc := base64.RawURLEncoding
-	pub64 := make([]byte, enc.EncodedLen(len(publicUncomp)))
-	enc.Encode(pub64, publicUncomp)
 
 	v = &Vapid{
-		PublicKey: pub64,
+		PublicKey: publicKey,
 		pkey:      &pkey}
 
 	return

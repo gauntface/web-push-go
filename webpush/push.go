@@ -99,7 +99,7 @@ func NewVapidRequest(sub *Subscription, message string, vapid *Vapid) (*http.Req
 	req.Header.Add("Encryption", headerField("salt", payload.Salt))
 	req.Header.Add("Crypto-Key",
 		headerField("dh", payload.ServerPublicKey)+"; p256ecdsa="+
-			string(vapid.PublicKey))
+			vapid.PublicKey)
 	req.Header.Add("Content-Encoding", "aesgcm")
 
 	return req, nil
