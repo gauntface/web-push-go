@@ -1,0 +1,42 @@
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>push-encryption-go</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <h1>push-encryption-go</h1>
+  <h2>Test Page</h2>
+
+  <script type="text/javascript">
+  (function() {
+    if (!('serviceWorker' in navigator)) {
+      window.succesfulSubscription = false;
+      window.subscriptionError = new Error("Service worker not supported");
+      return;
+    }
+
+    navigator.serviceWorker.register('service-worker.js')
+    .then(function(registration) {
+      return navigator.serviceWorker.ready;
+    })
+    .then(function(reg) {
+      return reg.pushManager.subscribe({ userVisibleOnly: true });
+    })
+    .then(function(subscription) {
+      if (!subscription) {
+        window.succesfulSubscription = false;
+        window.subscriptionError = new Error("No subscription object returned");
+        return;
+      }
+      window.succesfulSubscription = true;
+      window.testSubscription = subscription;
+    })
+    .catch(function(err) {
+      window.succesfulSubscription = false;
+      window.subscriptionError = err;
+    });
+  })();
+  </script>
+</body>
+</html>
