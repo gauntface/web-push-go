@@ -30,7 +30,7 @@
         return;
       }
       window.succesfulSubscription = true;
-      window.testSubscription = subscription;
+      window.testSubscription = JSON.stringify(subscription);
     })
     .catch(function(err) {
       window.succesfulSubscription = false;

@@ -19,6 +19,7 @@ import (
   "github.com/tebeka/selenium"
 	"net/http"
 	"log"
+	"time"
 )
 
 func startServer() {
@@ -41,17 +42,42 @@ func TestSubscribeAndTicker(t *testing.T) {
   // Get test page
 	wd.Get("http://localhost:8080/index.html")
 
+	// Set up notification permissions
+	ffProfile := selenium.FirefoxProfile("");
+	log.Println(ffProfile);
+
   // Subscribe and get subscription
 	var pushSubscription string
 	for(pushSubscription == "") {
-		script := "return arguments[0] + arguments[1]"
-		args := []interface{}{1, 2}
+		script := "return window.succesfulSubscription;"
+		args := []interface{}{}
 		reply, err := wd.ExecuteScript(script, args)
 		if err != nil {
 			t.Fatal(err)
 		}
-		log.Println(reply)
-		pushSubscription = "done"
+
+		if (reply == nil) {
+			time.Sleep(100 * time.Millisecond)
+			continue;
+		}
+
+		if reply.(bool) {
+			// We have a subscription
+			subscription, err := wd.ExecuteScript("return window.testSubscription", args)
+			if err != nil {
+				t.Fatal(err)
+			}
+			log.Println(subscription);
+			pushSubscription = "done"
+		} else {
+			// We have an error with subscription
+			browserError, err := wd.ExecuteScript("return window.subscriptionError", args)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t.Fatal(browserError)
+		}
 	}
   // Send Push
 
