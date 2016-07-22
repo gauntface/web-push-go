@@ -177,21 +177,12 @@ func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	// Derive a Pseudo-Random Key (prk) that can be used to further derive our
 	// other encryption parameters. These derivations are described in
 	// https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding-00
-	prk, err := hkdf(sub.Auth, secret, authInfo, 32)
-	if err != nil {
-		return nil, err
-	}
+	prk := hkdf(sub.Auth, secret, authInfo, 32)
 
 	// Derive the Content Encryption Key and nonce
 	ctx := newContext(sub.Key, serverPublicKey)
-	cek, err := newCEK(ctx, salt, prk)
-	if err != nil {
-		return nil, err
-	}
-	nonce, err := newNonce(ctx, salt, prk)
-	if err != nil {
-		return nil, err
-	}
+	cek := newCEK(ctx, salt, prk)
+	nonce := newNonce(ctx, salt, prk)
 
 	// Do the actual encryption
 	ciphertext, err := encrypt(plaintext, cek, nonce)
@@ -203,12 +194,12 @@ func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	return &EncryptionResult{ciphertext, salt, serverPublicKey}, nil
 }
 
-func newCEK(ctx, salt, prk []byte) ([]byte, error) {
+func newCEK(ctx, salt, prk []byte) []byte {
 	info := newInfo("aesgcm", ctx)
 	return hkdf(salt, prk, info, 16)
 }
 
-func newNonce(ctx, salt, prk []byte) ([]byte, error) {
+func newNonce(ctx, salt, prk []byte) []byte {
 	info := newInfo("nonce", ctx)
 	return hkdf(salt, prk, info, 12)
 }
@@ -266,10 +257,10 @@ func newInfo(infoType string, context []byte) []byte {
 // length we need/allow is 32.
 //
 // See https://www.rfc-editor.org/rfc/rfc5869.txt
-func hkdf(salt, ikm, info []byte, length int) ([]byte, error) {
+func hkdf(salt, ikm, info []byte, length int) []byte {
 	// HMAC length for SHA256 is 32 bytes, so that is the maximum result length.
 	if length > 32 {
-		return nil, fmt.Errorf("Can only produce HKDF outputs up to 32 bytes long")
+		panic("Can only produce HKDF outputs up to 32 bytes long")
 	}
 
 	// Extract
@@ -281,7 +272,7 @@ func hkdf(salt, ikm, info []byte, length int) ([]byte, error) {
 	mac = hmac.New(sha256.New, prk)
 	mac.Write(info)
 	mac.Write([]byte{1})
-	return mac.Sum(nil)[0:length], nil
+	return mac.Sum(nil)[0:length]
 }
 
 // Encrypt the plaintext message using AES128/GCM
