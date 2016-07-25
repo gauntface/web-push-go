@@ -136,7 +136,7 @@ func TestEncrypt(t *testing.T) {
 		t.Error(err)
 	}
 	if !bytes.Equal(result.Ciphertext, expCiphertext) {
-		t.Errorf("Expected ciphertext to be %v, got %v", result.Ciphertext, expCiphertext)
+		t.Errorf("Ciphertext was %v, expected %v", result.Ciphertext, expCiphertext)
 	}
 
 	_, expKey, err := mockKeys()
@@ -144,7 +144,7 @@ func TestEncrypt(t *testing.T) {
 		t.Error(err)
 	}
 	if !bytes.Equal(result.ServerPublicKey, expKey) {
-		t.Errorf("Expected server key to be %v, got %v", result.ServerPublicKey, expKey)
+		t.Errorf("Server key was %v, expected %v", result.ServerPublicKey, expKey)
 	}
 
 	expSalt, err := mockSalt()
@@ -152,7 +152,7 @@ func TestEncrypt(t *testing.T) {
 		t.Error(err)
 	}
 	if !bytes.Equal(result.Salt, expSalt) {
-		t.Errorf("Expected salt to be %v, got %v", result.Salt, expSalt)
+		t.Errorf("Salt was %v, expected %v", result.Salt, expSalt)
 	}
 }
 
@@ -198,7 +198,7 @@ func TestRfcVectors(t *testing.T) {
 		t.Error(err)
 	}
 	if !bytes.Equal(result.Ciphertext, expCiphertext) {
-		t.Errorf("Expected ciphertext to be %v, got %v", result.Ciphertext, expCiphertext)
+		t.Errorf("Ciphertext was %v, expected %v", result.Ciphertext, expCiphertext)
 	}
 }
 

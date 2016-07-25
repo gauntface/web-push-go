@@ -301,7 +301,7 @@ func encrypt(plaintext, key, nonce []byte) ([]byte, error) {
 func sharedSecret(curve elliptic.Curve, pub, priv []byte) ([]byte, error) {
 	publicX, publicY := elliptic.Unmarshal(curve, pub)
 	if publicX == nil {
-		return nil, fmt.Errorf("Invalid keys provided")
+		return nil, fmt.Errorf("Couldn't unmarshal public key. Not a valid point on the curve.")
 	}
 	x, _ := curve.ScalarMult(publicX, publicY, priv)
 	return x.Bytes(), nil
