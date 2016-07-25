@@ -169,7 +169,10 @@ func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	secret := sharedSecret(curve, sub.Key, serverPrivateKey)
+	secret, err := sharedSecret(curve, sub.Key, serverPrivateKey)
+	if err != nil {
+		return nil, err
+	}
 
 	// Derive a Pseudo-Random Key (prk) that can be used to further derive our
 	// other encryption parameters. These derivations are described in
@@ -250,15 +253,14 @@ func newInfo(infoType string, context []byte) []byte {
 //
 // This is a partial implementation of HKDF tailored to our specific purposes.
 // In particular, for us the value of N will always be 1, and thus T always
-// equals HMAC-Hash(PRK, info | 0x01).
+// equals HMAC-Hash(PRK, info | 0x01). This is true because the maximum output
+// length we need/allow is 32.
 //
 // See https://www.rfc-editor.org/rfc/rfc5869.txt
 func hkdf(salt, ikm, info []byte, length int) []byte {
 	// HMAC length for SHA256 is 32 bytes, so that is the maximum result length.
-	// HKDF defines a way to have longer lengths, but our partial implementation
-	// will just truncate the result.
 	if length > 32 {
-		length = 32
+		panic("Can only produce HKDF outputs up to 32 bytes long")
 	}
 
 	// Extract
@@ -296,8 +298,11 @@ func encrypt(plaintext, key, nonce []byte) ([]byte, error) {
 
 // Given the coordinates of a party A's public key and the bytes of party B's
 // private key, compute a shared secret.
-func sharedSecret(curve elliptic.Curve, pub, priv []byte) []byte {
+func sharedSecret(curve elliptic.Curve, pub, priv []byte) ([]byte, error) {
 	publicX, publicY := elliptic.Unmarshal(curve, pub)
+	if publicX == nil {
+		return nil, fmt.Errorf("Couldn't unmarshal public key. Not a valid point on the curve.")
+	}
 	x, _ := curve.ScalarMult(publicX, publicY, priv)
-	return x.Bytes()
+	return x.Bytes(), nil
 }
