@@ -25,7 +25,7 @@ import (
 
 const (
 	gcmURL     = "https://android.googleapis.com/gcm/send"
-	tempGcmURL = "https://gcm-http.googleapis.com/gcm"
+	tempGcmURL = "https://fcm-http.googleapis.com/fcm/send"
 )
 
 // NewPushRequest creates a valid Web Push HTTP request for sending a message
@@ -69,6 +69,25 @@ func NewPushRequest(sub *Subscription, message string, token string) (*http.Requ
 	return req, nil
 }
 
+// NewVapidRequest creates a valid Web Push HTTP request for sending a message
+// to a subscriber, using Vapid authentication. You can add more headers to
+// configure collapsing, TTL.
+func NewVapidRequest(sub *Subscription, message string, vapid *Vapid) (*http.Request, error) {
+	req, err := NewPushRequest(sub, message, "")
+	if err != nil {
+		return nil, err
+	}
+
+	tok, err := vapid.Token(sub.Endpoint)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", fmt.Sprintf(`Bearer %s`, tok))
+	req.Header.Set("Crypto-Key", req.Header.Get("Crypto-Key")+"; "+headerField("p256ecdsa", vapid.PublicKey()))
+
+	return req, nil
+}
+
 // Send a message using the Web Push protocol to the recipient identified by the
 // given subscription object. If the client is nil then the default HTTP client
 // will be used. If the push service requires an authentication header (notably
@@ -89,5 +108,5 @@ func Send(client *http.Client, sub *Subscription, message, token string) (*http.
 
 // A helper for creating the value part of the HTTP encryption headers
 func headerField(headerType string, value []byte) string {
-	return fmt.Sprintf(`%s=%s`, headerType, base64.URLEncoding.EncodeToString(value))
+	return fmt.Sprintf(`%s=%s`, headerType, base64.RawURLEncoding.EncodeToString(value))
 }
