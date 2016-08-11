@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -32,6 +33,7 @@ const (
 // to a subscriber. If the push service requires an authentication header
 // (notably Google Cloud Messaging, used by Chrome) then you can add that as the
 // token parameter.
+// Deprecated - token auth is not part of the spec.
 func NewPushRequest(sub *Subscription, message string, token string) (*http.Request, error) {
 	// If the endpoint is GCM then we temporarily need to rewrite it, as not all
 	// GCM servers support the Web Push protocol. This should go away in the
@@ -72,16 +74,18 @@ func NewPushRequest(sub *Subscription, message string, token string) (*http.Requ
 // NewVapidRequest creates a valid Web Push HTTP request for sending a message
 // to a subscriber, using Vapid authentication. You can add more headers to
 // configure collapsing, TTL.
-func NewVapidRequest(sub *Subscription, message string, vapid *Vapid) (*http.Request, error) {
+func NewRequest(to *Subscription, message string, ttlSec int, vapid *Vapid) (*http.Request, error) {
 	// If the endpoint is GCM then we temporarily need to rewrite it, as not all
 	// GCM servers support the Web Push protocol. This should go away in the
 	// future.
-	req, err := http.NewRequest("POST", sub.Endpoint, nil)
+	req, err := http.NewRequest("POST", to.Endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	tok := vapid.Token(sub.Endpoint)
+	req.Header.Add("ttl", strconv.Itoa(ttlSec))
+
+	tok := vapid.Token(to.Endpoint)
 	req.Header.Add("Authorization", fmt.Sprintf(`Bearer %s`, tok))
 
 	// If there is no payload then we don't actually need encryption
@@ -89,7 +93,7 @@ func NewVapidRequest(sub *Subscription, message string, vapid *Vapid) (*http.Req
 		return req, nil
 	}
 
-	payload, err := Encrypt(sub, message)
+	payload, err := Encrypt(to, message)
 	if err != nil {
 		return nil, err
 	}

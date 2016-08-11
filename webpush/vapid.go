@@ -27,11 +27,16 @@ import (
 )
 
 var (
+	// encoded {typ:JWT, alg: ES256}
 	vapidPrefix = []byte("eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.")
 	dot         = []byte(".")
 )
 
+//TODO: if vapidPrefix is missing, decode the prefix into jwtPrefix
+// and check if it has the correct values.
 type jwtPrefix struct {
+	Typ string `json:"typ"`
+	Alg string `json:"alg"`
 }
 
 type jwtBody struct {

@@ -142,23 +142,6 @@ type EncryptionResult struct {
 	ServerPublicKey []byte
 }
 
-// Decrypt an encrypted messages.
-func Decrypt(sub *Subscription, crypt *EncryptionResult, subPrivate []byte) (plain []byte, err error) {
-	secret := sharedSecret(curve, crypt.ServerPublicKey, subPrivate)
-	prk := hkdf(sub.Auth, secret, authInfo, 32)
-
-	// Derive the Content Encryption Key and nonce
-	ctx := newContext(sub.Key, crypt.ServerPublicKey)
-	cek := newCEK(ctx, crypt.Salt, prk)
-	nonce := newNonce(ctx, crypt.Salt, prk)
-
-	plain, err = decrypt(crypt.Ciphertext, cek, nonce)
-	if err != nil {
-		return nil, err
-	}
-	return
-}
-
 // TODO: input should be a []byte ( proto, etc )
 
 // Encrypt a message such that it can be sent using the Web Push protocol.

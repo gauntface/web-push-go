@@ -36,8 +36,7 @@ func send(t *testing.T, epjson string) {
 
 	vapid := NewVapid(vapidPub, vapidPriv)
 	vapid.Sub = "test@example.com"
-	req, err := NewVapidRequest(sub, message, vapid)
-	req.Header.Add("ttl", "0")
+	req, err := NewRequest(sub, message, 0, vapid)
 	res, err := http.DefaultClient.Do(req)
 
 	if err != nil || res.StatusCode != 201 {
