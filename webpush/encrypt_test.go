@@ -35,14 +35,17 @@ var (
 			"auth": "WPF9D0bTVZCV2pXSgj6Zug=="
 		}
 	}`)
-	message = `I am the walrus`
+	message   = `I am the walrus`
+	rfcPublic = "BCEkBjzL8Z3C-oi2Q7oE5t2Np-p7osjGLg93qUP0wvqRT21EEWyf0cQDQcakQMqz4hQKYOQ3il2nNZct4HgAUQU"
+	rfcCipher = "6nqAQUME8hNqw5J3kl8cpVVJylXKYqZOeseZG8UueKpA"
+	rfcAuth   = "R29vIGdvbyBnJyBqb29iIQ"
 )
 
-func generateMockSalt() ([]byte, error) {
+func mockSalt() ([]byte, error) {
 	return hex.DecodeString("00112233445566778899aabbccddeeff")
 }
 
-func generateMockKeys() ([]byte, []byte, error) {
+func mockKeys() ([]byte, []byte, error) {
 	priv, _ := hex.DecodeString("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 
 	// Generate the right public key for the static private key
@@ -120,7 +123,7 @@ func TestEncrypt(t *testing.T) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	defer stubFuncs(generateMockSalt, generateMockKeys)()
+	defer stubFuncs(mockSalt, mockKeys)()
 
 	// Use the library to encrypt the message
 	result, err := Encrypt(sub, message)
@@ -133,23 +136,82 @@ func TestEncrypt(t *testing.T) {
 		t.Error(err)
 	}
 	if !bytes.Equal(result.Ciphertext, expCiphertext) {
-		t.Errorf("Expected ciphertext to be %v, got %v", result.Ciphertext, expCiphertext)
+		t.Errorf("Ciphertext was %v, expected %v", result.Ciphertext, expCiphertext)
 	}
 
-	_, expKey, err := generateMockKeys()
+	_, expKey, err := mockKeys()
 	if err != nil {
 		t.Error(err)
 	}
 	if !bytes.Equal(result.ServerPublicKey, expKey) {
-		t.Errorf("Expected server key to be %v, got %v", result.ServerPublicKey, expKey)
+		t.Errorf("Server key was %v, expected %v", result.ServerPublicKey, expKey)
 	}
 
-	expSalt, err := generateMockSalt()
+	expSalt, err := mockSalt()
 	if err != nil {
 		t.Error(err)
 	}
 	if !bytes.Equal(result.Salt, expSalt) {
-		t.Errorf("Expected salt to be %v, got %v", result.Salt, expSalt)
+		t.Errorf("Salt was %v, expected %v", result.Salt, expSalt)
+	}
+}
+
+func rfcSalt() ([]byte, error) {
+	return base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString("lngarbyKfMoi9Z75xYXmkg")
+}
+
+func rfcKeys() ([]byte, []byte, error) {
+	priv, _ := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString("nCScek-QpEjmOOlT-rQ38nZzvdPlqa00Zy0i6m2OJvY")
+
+	// Generate the right public key for the static private key
+	x, y := curve.ScalarMult(curve.Params().Gx, curve.Params().Gy, priv)
+
+	return priv, elliptic.Marshal(curve, x, y), nil
+}
+
+// TestRfcVectors uses the values given in the RFC for HTTP encryption to verify
+// that the code conforms to the RFC
+// See: https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding-02#appendix-B
+func TestRfcVectors(t *testing.T) {
+	defer stubFuncs(rfcSalt, rfcKeys)()
+
+	b64 := base64.URLEncoding.WithPadding(base64.NoPadding)
+
+	auth, err := b64.DecodeString(rfcAuth)
+	if err != nil {
+		t.Error(err)
+	}
+	key, err := b64.DecodeString(rfcPublic)
+	if err != nil {
+		t.Error(err)
+	}
+
+	sub := &Subscription{Auth: auth, Key: key}
+
+	result, err := Encrypt(sub, message)
+	if err != nil {
+		t.Error(err)
+	}
+
+	expCiphertext, err := b64.DecodeString(rfcCipher)
+	if err != nil {
+		t.Error(err)
+	}
+	if !bytes.Equal(result.Ciphertext, expCiphertext) {
+		t.Errorf("Ciphertext was %v, expected %v", result.Ciphertext, expCiphertext)
+	}
+}
+
+func TestSharedSecret(t *testing.T) {
+	serverPrivateKey, _, _ := randomKey()
+	invalidPub, _ := hex.DecodeString("00112233445566778899aabbccddeeff")
+	_, err := sharedSecret(curve, invalidPub, serverPrivateKey)
+	if err == nil {
+		t.Error("Expected an error due to invalid public key")
+	}
+	_, err = sharedSecret(curve, nil, serverPrivateKey)
+	if err == nil {
+		t.Error("Expected an error due to nil key")
 	}
 }
 
