@@ -6,6 +6,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sync"
+	"net"
+	"golang.org/x/net/http2"
+	"log"
 )
 
 var channels = struct {
@@ -54,6 +57,58 @@ type Message struct {
 	ID   string
 }
 
+func InitServer(port string) {
+	http.HandleFunc("/subscribe", SubscribeHandler)
+	http.HandleFunc("/p", Poll)
+	http.HandleFunc("/s", SendHandler)
+
+	lis, err := net.Listen("tcp", port)
+	if err != nil {
+		return
+	}
+	for {
+		conn, err := lis.Accept()
+		if err != nil {
+			return err
+		}
+		go handleCon(conn)
+	}
+}
+
+// Special handler for receipts and poll, which use push promises
+func handleCon(con net.Conn) {
+	defer con.Close()
+	// writer: bufio.NewWriterSize(conn, http2IOBufSize),
+	f := http2.NewFramer(con, con)
+	settings := []http2.Setting{}
+
+	if err := f.WriteSettings(settings...); err != nil {
+		return
+	}
+
+	frame, err := f.ReadFrame()
+	if err != nil {
+		log.Println(" failed to read frame", err)
+		return
+	}
+	sf, ok := frame.(*http2.SettingsFrame)
+	if !ok {
+		log.Println("wrong frame %T from client", frame)
+		return
+	}
+	log.Println(sf)
+	//hDec := hpack.NewDecoder()
+
+	for {
+		select {
+
+		}
+
+	}
+
+}
+
+
 // Subscribe creates a subscription. Initial version is just a
 // random - some interface will be added later, to allow sets.
 func SubscribeHandler(res http.ResponseWriter, req *http.Request) {
@@ -69,8 +124,8 @@ func SubscribeHandler(res http.ResponseWriter, req *http.Request) {
 	// parsing both
 
 	// Used for send - on same server as subscribe
-	res.Header().Add("Link", "</p/"+
-		id+
+	res.Header().Add("Link", "</p/" +
+		id +
 		">;rel=\"urn:ietf:params:push\"")
 
 	// May provide support for set: should be enabled if a
@@ -79,12 +134,22 @@ func SubscribeHandler(res http.ResponseWriter, req *http.Request) {
 	//	"JzLQ3raZJfFBR0aqvOMsLrt54w4rJUsV" +
 	//	">;rel=\"urn:ietf:params:push:set\"")
 
-	res.Header().Add("Location", ReceiveBaseUrl+"/r/"+id)
+	res.Header().Add("Location", ReceiveBaseUrl + "/r/" + id)
 
 	return
 }
 
-// Poll provides a backward compatible mechanism for
+func heartbeat(m *Message) {
+	channels.RLock()
+	defer channels.RUnlock()
+
+	for _, c := range channels.m {
+		c.Send(m)
+	}
+}
+
+// Poll provides a backward compatible mechanism for fetching messages using
+// streaming json. The format is similar with BrowserChannel, for easier parsing.
 func Poll(res http.ResponseWriter, req *http.Request) {
 	newChannel := &Channel{}
 	token := req.RequestURI[3:] // skip /r/
@@ -98,12 +163,17 @@ func Poll(res http.ResponseWriter, req *http.Request) {
 		oldChannel.Close()
 	}
 
+	// TODO: write to a 'connections' DB, for distributed servers
 	go newChannel.Run()
 
 	return
 }
 
+// Webpush send will look for a connection and send the message.
 func SendHandler(res http.ResponseWriter, req *http.Request) {
+	// TODO: if not found, attempt to lookup in a 'connections' DB to find a better
+	// server.
+
 	token := req.RequestURI[3:] // skip /s/
 
 	defer req.Body.Close()

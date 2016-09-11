@@ -8,16 +8,23 @@ import (
 
 var ()
 
+// UA represents a "user agent" - or client using the webpush protocol
+// This is intended for testing and simple use.
 type UA struct {
+	// URL of the subscribe for the push service
 	PushService string
 }
 
+// UASubscription represents one app's subscription.
+// A UA may host multiple apps.
 type UASubscription struct {
 	Subscription
-	// Used internally by the UA to poll
+
+	// Used by the UA to receive messages, as PUSH promises
 	location string
 }
 
+// Create a subscription.
 func (ua *UA) Subscribe() (sub UASubscription, err error) {
 	res, err := http.Post(ua.PushService+"/subscribe", "test/plain", nil)
 
@@ -42,7 +49,7 @@ func (ua *UA) Subscribe() (sub UASubscription, err error) {
 	return
 }
 
-// Read will receive messages, using a regular hanging GET.
+// Read will receive messages, using a hanging GET, for cases where HTTP/2 is not available.
 func (ua *UA) Read() (sub UASubscription, err error) {
 	res, err := http.Post(ua.PushService+"/subscribe", "test/plain", nil)
 
@@ -69,7 +76,10 @@ func (ua *UA) Read() (sub UASubscription, err error) {
 
 // Decrypt an encrypted messages.
 func Decrypt(sub *Subscription, crypt *EncryptionResult, subPrivate []byte) (plain []byte, err error) {
-	secret := sharedSecret(curve, crypt.ServerPublicKey, subPrivate)
+	secret, err := sharedSecret(curve, crypt.ServerPublicKey, subPrivate)
+	if err != nil {
+		return
+	}
 	prk := hkdf(sub.Auth, secret, authInfo, 32)
 
 	// Derive the Content Encryption Key and nonce
