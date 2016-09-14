@@ -3,12 +3,12 @@ package webpush
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"golang.org/x/net/http2"
 	"io/ioutil"
+	"log"
+	"net"
 	"net/http"
 	"sync"
-	"net"
-	"golang.org/x/net/http2"
-	"log"
 )
 
 var channels = struct {
@@ -57,7 +57,7 @@ type Message struct {
 	ID   string
 }
 
-func InitServer(port string) {
+func InitServer(port string) (err error) {
 	http.HandleFunc("/subscribe", SubscribeHandler)
 	http.HandleFunc("/p", Poll)
 	http.HandleFunc("/s", SendHandler)
@@ -100,14 +100,11 @@ func handleCon(con net.Conn) {
 	//hDec := hpack.NewDecoder()
 
 	for {
-		select {
-
-		}
+		select {}
 
 	}
 
 }
-
 
 // Subscribe creates a subscription. Initial version is just a
 // random - some interface will be added later, to allow sets.
@@ -124,8 +121,8 @@ func SubscribeHandler(res http.ResponseWriter, req *http.Request) {
 	// parsing both
 
 	// Used for send - on same server as subscribe
-	res.Header().Add("Link", "</p/" +
-		id +
+	res.Header().Add("Link", "</p/"+
+		id+
 		">;rel=\"urn:ietf:params:push\"")
 
 	// May provide support for set: should be enabled if a
@@ -134,7 +131,7 @@ func SubscribeHandler(res http.ResponseWriter, req *http.Request) {
 	//	"JzLQ3raZJfFBR0aqvOMsLrt54w4rJUsV" +
 	//	">;rel=\"urn:ietf:params:push:set\"")
 
-	res.Header().Add("Location", ReceiveBaseUrl + "/r/" + id)
+	res.Header().Add("Location", ReceiveBaseUrl+"/r/"+id)
 
 	return
 }

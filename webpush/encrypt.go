@@ -185,10 +185,6 @@ func EncryptWithTempKey(sub *Subscription, plaintext []byte,
 
 	// Use ECDH to derive a shared secret between us and the client. We generate
 	// a fresh private/public key pair at random every time we encrypt.
-	serverPrivateKey, serverPublicKey, err := randomKey()
-	if err != nil {
-		return nil, err
-	}
 	secret, err := sharedSecret(curve, sub.Key, serverPrivateKey)
 	if err != nil {
 		return nil, err
