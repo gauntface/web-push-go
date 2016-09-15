@@ -13,11 +13,15 @@ import (
 	"fmt"
 	"github.com/costinm/push-encryption-go/webpush"
 	"os"
+	"io/ioutil"
+	"net/http"
+	"net/http/httputil"
 )
 
 var (
 	vapid = flag.NewFlagSet("vapid", flag.ExitOnError)
 	curl  = flag.NewFlagSet("curl", flag.ExitOnError)
+	send  = flag.NewFlagSet("send", flag.ExitOnError)
 
 	sub = vapid.String("sub", "", "Optional email or URL identifying the sender")
 	// TODO: txt   = flag.String("txt", "", "Generate a VAPID key with full content")
@@ -59,6 +63,45 @@ func genKeys() {
 	return
 }
 
+func sendMessage() {
+	pub64,priv64 := getKeys()
+	vapid := webpush.NewVapid(pub64, priv64)
+	msg, err := ioutil.ReadAll(os.Stdin)
+	if err != nil {
+		fmt.Println("Failed to read message")
+		os.Exit(3)
+	}
+	to, err := webpush.SubscriptionFromJSON([]byte(os.Args[2]))
+
+	if err != nil {
+		fmt.Println("Invalid endpoint " + flag.Arg(1), err)
+		os.Exit(3)
+	}
+
+	req, err := webpush.NewRequest(to, string(msg), 0, vapid)
+	res, err := http.DefaultClient.Do(req)
+
+	if err != nil || res.StatusCode != 201 {
+		dmpReq, err := httputil.DumpRequest(req, true)
+		fmt.Printf(string(dmpReq))
+		dmp, err := httputil.DumpResponse(res, true)
+		fmt.Printf(string(dmp))
+		fmt.Printf("Failed to send ", err, res.StatusCode)
+	}
+}
+
+func getKeys() (string,string) {
+	pub64 := os.Getenv("VAPID_PUB")
+	priv64 := os.Getenv("VAPID_PRIV")
+
+	if len(pub64) == 0 || len(priv64) == 0 {
+		fmt.Println()
+		fmt.Println("VAPID_PUB and VAPID_PRIV environment variables must be set")
+		os.Exit(2)
+	}
+	return pub64, priv64
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("gen\tGenerate VAPID key pair")
@@ -75,19 +118,15 @@ func main() {
 		os.Exit(0)
 	case "vapid":
 		vapid.Parse(os.Args[2:])
+	case "send":
+		send.Parse(os.Args[2:])
+		sendMessage()
 	default:
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	pub64 := os.Getenv("VAPID_PUB")
-	priv64 := os.Getenv("VAPID_PRIV")
-
-	if len(pub64) == 0 || len(priv64) == 0 {
-		fmt.Println()
-		fmt.Println("VAPID_PUB and VAPID_PRIV environment variables must be set")
-		os.Exit(2)
-	}
+	pub64,priv64 := getKeys()
 
 	vapid := webpush.NewVapid(pub64, priv64)
 
