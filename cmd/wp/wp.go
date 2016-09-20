@@ -12,24 +12,30 @@ import (
 	"flag"
 	"fmt"
 	"github.com/costinm/push-encryption-go/webpush"
-	"os"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
+	"os"
 )
 
 var (
-	vapid = flag.NewFlagSet("vapid", flag.ExitOnError)
-	curl  = flag.NewFlagSet("curl", flag.ExitOnError)
-	send  = flag.NewFlagSet("send", flag.ExitOnError)
+	vapid  = flag.NewFlagSet("vapid", flag.ExitOnError)
+	curl   = flag.NewFlagSet("curl", flag.ExitOnError)
+	send   = flag.NewFlagSet("send", flag.ExitOnError)
+	server = flag.NewFlagSet("server", flag.ExitOnError)
+	ua     = flag.NewFlagSet("ua", flag.ExitOnError)
 
 	sub = vapid.String("sub", "", "Optional email or URL identifying the sender")
 	// TODO: txt   = flag.String("txt", "", "Generate a VAPID key with full content")
 	aud = vapid.String("aud", "", "Generate a VAPID key with the given domain")
 
-	msg    = flag.String("msg", "", "Message to send, or stdin")
-	p256dh = flag.String("p256dh", "", "The p256dh parameter from subscription")
-	auth   = flag.String("auth", "", "The auth parameter from subscription")
+	serverPort = server.String("port", ":5222", "Main port")
+	// Has to be separate because for now framing is trickier
+	serverPortH2 = server.String("portH2", ":5223", "Server to listen for long lived connections using standard protocol")
+
+	uaPort = ua.String("port", ":5222", "Main port")
+	// Has to be separate because for now framing is trickier
+	uaPortH2 = ua.String("portH2", ":5223", "Port for standard HTTP/2 connections")
 
 	curve = elliptic.P256()
 )
@@ -64,7 +70,7 @@ func genKeys() {
 }
 
 func sendMessage() {
-	pub64,priv64 := getKeys()
+	pub64, priv64 := getKeys()
 	vapid := webpush.NewVapid(pub64, priv64)
 	msg, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
@@ -74,7 +80,7 @@ func sendMessage() {
 	to, err := webpush.SubscriptionFromJSON([]byte(os.Args[2]))
 
 	if err != nil {
-		fmt.Println("Invalid endpoint " + flag.Arg(1), err)
+		fmt.Println("Invalid endpoint "+flag.Arg(1), err)
 		os.Exit(3)
 	}
 
@@ -90,7 +96,7 @@ func sendMessage() {
 	}
 }
 
-func getKeys() (string,string) {
+func getKeys() (string, string) {
 	pub64 := os.Getenv("VAPID_PUB")
 	priv64 := os.Getenv("VAPID_PRIV")
 
@@ -108,6 +114,8 @@ func main() {
 		fmt.Println("vapid\tGenerate VAPID token")
 		fmt.Println("curl\tEncrypt and generate curl command parameters. Reads message from stdin")
 		fmt.Println("send\tEncrypt and send. Reads message from stdin")
+		fmt.Println("server\tStart a micro server")
+		fmt.Println("ua\tStart a client connection ( user agent )")
 
 		os.Exit(1)
 	}
@@ -115,18 +123,52 @@ func main() {
 	switch os.Args[1] {
 	case "gen":
 		genKeys()
-		os.Exit(0)
+		break
 	case "vapid":
 		vapid.Parse(os.Args[2:])
+		curlVapid()
+		break
 	case "send":
 		send.Parse(os.Args[2:])
 		sendMessage()
+		break
+	case "server":
+		server.Parse(os.Args[2:])
+		startServer()
+		break
+	case "ua":
+		ua.Parse(os.Args[2:])
+		startClient()
+		break
+
 	default:
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
+}
 
-	pub64,priv64 := getKeys()
+func startServer() {
+	webpush.InitServer(*serverPort)
+
+}
+
+func startClient() {
+	ua := webpush.UA{}
+	pushSet := os.Getenv("PUSH_SET")
+	if len(pushSet) == 0 {
+		sub, err := ua.Subscribe()
+		if err != nil {
+			return
+		}
+		fmt.Println("" + sub)
+	} else {
+
+	}
+}
+
+// Print VAPID curl header
+func curlVapid() {
+	pub64, priv64 := getKeys()
 
 	vapid := webpush.NewVapid(pub64, priv64)
 
