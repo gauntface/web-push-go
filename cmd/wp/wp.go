@@ -11,11 +11,12 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/costinm/push-encryption-go/webpush"
-	"os"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
+	"os"
+
+	"github.com/costinm/push-encryption-go/webpush"
 )
 
 var (
@@ -25,13 +26,24 @@ var (
 
 	sub = vapid.String("sub", "", "Optional email or URL identifying the sender")
 	// TODO: txt   = flag.String("txt", "", "Generate a VAPID key with full content")
-	aud = vapid.String("aud", "", "Generate a VAPID key with the given domain")
+	aud = vapid.String("aud", "", "Generate a VAPID key with the given domain. Defaults to https://fcm.googleapis.com")
 
-	msg    = flag.String("msg", "", "Message to send, or stdin")
-	p256dh = flag.String("p256dh", "", "The p256dh parameter from subscription")
-	auth   = flag.String("auth", "", "The auth parameter from subscription")
+	sendVerbose = send.Bool("v", false, "Show request and response body")
 
 	curve = elliptic.P256()
+)
+
+const (
+	// Environment variable for the private key.
+	// Using env is more secure than flags - "ps" can expose it.
+	EnvVapidPrivate = "VAPID_PRIV"
+
+	// Environment variable for the public key. It is passed as
+	// env for consistency with the private key, and to simplify
+	// the command line
+	EnvVapidPublic = "VAPID_PUB"
+	Subscription = "TO"
+
 )
 
 type Keys struct {
@@ -41,6 +53,47 @@ type Keys struct {
 
 type Sub struct {
 	Endpoint string ``
+}
+
+// Generate a snippet of js defining APPLICATION_SERVER_KEY.
+// Needs to be passed as "applicationServerKey" parameter in the subscription
+// options
+func genJsKey() {
+	pub64 := os.Getenv("VAPID_PUB")
+
+	if len(pub64) == 0 {
+		fmt.Println()
+		fmt.Println("VAPID_PUB environment variable must be set")
+		os.Exit(2)
+	}
+	publicUncomp, _ := base64.RawURLEncoding.DecodeString(pub64)
+
+	if publicUncomp[0] != 4 {
+		fmt.Println()
+		fmt.Println("VAPID_PUB must be basae64 encoding of an uncompressed public key, starting with 0x04")
+		os.Exit(3)
+
+	}
+
+	if len(publicUncomp) != 65 {
+		fmt.Println()
+		fmt.Println("VAPID_PUB must be basae64 encoding of an uncompressed public key, of 65 bytes length")
+		os.Exit(4)
+
+	}
+	fmt.Println("const APPLICATION_SERVER_KEY = new Uint8Array([4,")
+	for i := 0; i < 4; i++ {
+		fmt.Print("    ")
+		for j := 0; j < 16; j++ {
+			fmt.Print(publicUncomp[i*16+j+1])
+			if i != 3 || j != 15 {
+				fmt.Print(", ")
+			} else {
+				fmt.Print("]);")
+			}
+		}
+		fmt.Println()
+	}
 }
 
 func genKeys() {
@@ -63,18 +116,53 @@ func genKeys() {
 	return
 }
 
-func sendMessage() {
-	pub64,priv64 := getKeys()
+// Show a CURL command line for sending the message
+func showCurl() {
+	pub64, priv64 := getKeys()
 	vapid := webpush.NewVapid(pub64, priv64)
 	msg, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
 		fmt.Println("Failed to read message")
 		os.Exit(3)
 	}
-	to, err := webpush.SubscriptionFromJSON([]byte(os.Args[2]))
+	to, err := webpush.SubscriptionFromJSON([]byte(os.Getenv(Subscription)))
 
 	if err != nil {
-		fmt.Println("Invalid endpoint " + flag.Arg(1), err)
+		fmt.Println("Invalid endpoint "+flag.Arg(1), err)
+		os.Exit(3)
+	}
+
+	payload, err:= webpush.Encrypt(to, string(msg))
+	payload64 := base64.StdEncoding.EncodeToString(payload.Ciphertext)
+	tok := vapid.Token(to.Endpoint);
+
+	fmt.Println(
+		"echo -n " + string(payload64) + " | base64 -d > /tmp/$$.bin; " +
+ 		"curl -HTtl:0" +
+		" -XPOST" +
+		" --data-binary @/tmp/$$.bin" +
+			" -HContent-Encoding:aesgcm" +
+		" -H Encryption:salt=" + base64.RawURLEncoding.EncodeToString(payload.Salt) +
+		" -H \"Authorization:Bearer " + tok + "\"" +
+		" -H \"Crypto-Key: dh=" + base64.RawURLEncoding.EncodeToString(payload.ServerPublicKey) +
+			"; p256ecdsa=" + vapid.PublicKey + "\" " +
+			to.Endpoint)
+
+}
+
+// Send the message.
+func sendMessage() {
+	pub64, priv64 := getKeys()
+	vapid := webpush.NewVapid(pub64, priv64)
+	msg, err := ioutil.ReadAll(os.Stdin)
+	if err != nil {
+		fmt.Println("Failed to read message")
+		os.Exit(3)
+	}
+	to, err := webpush.SubscriptionFromJSON([]byte(os.Getenv(Subscription)))
+
+	if err != nil {
+		fmt.Println("Invalid endpoint "+flag.Arg(1), err)
 		os.Exit(3)
 	}
 
@@ -87,10 +175,35 @@ func sendMessage() {
 		dmp, err := httputil.DumpResponse(res, true)
 		fmt.Printf(string(dmp))
 		fmt.Printf("Failed to send ", err, res.StatusCode)
+	} else if *sendVerbose {
+		dmpReq, _ := httputil.DumpRequest(req, true)
+		fmt.Printf(string(dmpReq))
+		dmp, _ := httputil.DumpResponse(res, true)
+		fmt.Printf(string(dmp))
 	}
 }
 
-func getKeys() (string,string) {
+func genVapid() {
+	pub64, priv64 := getKeys()
+
+	vapid := webpush.NewVapid(pub64, priv64)
+
+	if len(*sub) > 0 {
+		vapid.Sub = *sub
+	}
+
+	a := *aud
+	if len(a) == 0 {
+		// by default generate for google
+		a = "https://fcm.googleapis.com"
+	}
+	// TODO: extract the base URL only, if full endpoint provided
+	fmt.Println("-H\"Authorization:WebPush " + vapid.Token(*aud) + "\"" +
+		" -H\"Crypto-Key:p256ecdsa=" + pub64 + "\"")
+
+}
+
+func getKeys() (string, string) {
 	pub64 := os.Getenv("VAPID_PUB")
 	priv64 := os.Getenv("VAPID_PRIV")
 
@@ -102,12 +215,17 @@ func getKeys() (string,string) {
 	return pub64, priv64
 }
 
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("gen\tGenerate VAPID key pair")
+		fmt.Println("js\tGenerate js snippet for applicationServerKey, to use in subscribe calls")
+		fmt.Println("send\tEncrypt and send. Reads message from stdin")
+
+		// advanced:
+		fmt.Println()
 		fmt.Println("vapid\tGenerate VAPID token")
 		fmt.Println("curl\tEncrypt and generate curl command parameters. Reads message from stdin")
-		fmt.Println("send\tEncrypt and send. Reads message from stdin")
 
 		os.Exit(1)
 	}
@@ -116,30 +234,19 @@ func main() {
 	case "gen":
 		genKeys()
 		os.Exit(0)
+	case "js":
+		genJsKey()
+		os.Exit(0)
 	case "vapid":
 		vapid.Parse(os.Args[2:])
+		genVapid()
 	case "send":
 		send.Parse(os.Args[2:])
 		sendMessage()
+	case "curl":
+		showCurl()
 	default:
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
-
-	pub64,priv64 := getKeys()
-
-	vapid := webpush.NewVapid(pub64, priv64)
-
-	if len(*sub) > 0 {
-		vapid.Sub = *sub
-	}
-
-	if len(*aud) > 0 {
-		// TODO: extract the base URL only, if full endpoint provided
-		fmt.Println("-H\"Authorization:WebPush " + vapid.Token(*aud) + "\"" +
-			" -H\"Crypto-Key:p256ecdsa=" + pub64 + "\"")
-	} else {
-		return
-	}
-
 }
