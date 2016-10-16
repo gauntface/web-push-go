@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package wpas;
+
+service WebpushAS {
+  // Subscribe includes the subscription data from the UA and additional parameters that
+  // the AS may need.
+  rpc Subscribe (SubscribeRequest) returns (SubscribeResponse) {
+  }
+
+  rpc Send(Message) returns (SendResponse) {}
+
+}
+
+message SendResponse {
+  map<string,string> headers = 1;
+  bytes data = 2;
+}
+
+message ReadRequest {
+    // URL path of the request
+    string push_set = 1;
+
+    // JWT token, signed with key
+    string authorization = 2;
+
+    // Public key used for signing, identifies sender/receiver
+    string key = 3;
+}
+
+message Message {
+  map<string,string> headers = 1;
+  bytes data = 2;
+}
+
+//
+message SubscribeRequest {
+  // Public key or identifier of the entity authorized to send.
+  //
+  string authorized_entity = 1;
+
+  // A UA should group subscriptions in a set. First request from a
+  // UA will not include a set - it is typically a subscription associated with
+  // the UA itself.
+  string subscription_set = 2;
+
+  // JWT token, signed with key
+  string authorization = 3;
+
+  // Public key used for signing, identifies sender/receiver
+  string jwt256dh_public = 6;
+}
+
+//
+message SubscribeResponse {
+  // URL
+  string endpoint = 1;
+  string subscription_set = 2;
+}
+
+// Data saved on the client, for each subscription
+message ClientSubscription {
+  // URL
+  string endpoint = 1;
+  string subscription_set = 2;
+
+  // Typically returned by the UA - in standalone use returned by webpush
+  // client.
+  string p256dh = 4;
+
+  string auth = 3;
+
+  // The private key, used to decrypt
+  string p256dh_private = 5;
+
+  // Keys used for authenticating the client / subscription
+  string jwt256dh_public = 6;
+  string jwt256dh_private = 7;
+
+}

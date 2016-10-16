@@ -168,8 +168,6 @@ func Poll(res http.ResponseWriter, req *http.Request) {
 
 // Webpush send will look for a connection and send the message.
 func SendHandler(res http.ResponseWriter, req *http.Request) {
-	// TODO: if not found, attempt to lookup in a 'connections' DB to find a better
-	// server.
 
 	token := req.RequestURI[3:] // skip /s/
 
@@ -194,13 +192,15 @@ func SendHandler(res http.ResponseWriter, req *http.Request) {
 		if ok {
 			t.Messages = append(t.Messages, *m)
 		} else {
+			// TODO: if not found, attempt to lookup in a 'connections' DB to find a better
+			// server.
 
 		}
 
 		return
 	}
 
-	res.WriteHeader(200)
+	res.WriteHeader(201)
 
 	ch.Send(m)
 

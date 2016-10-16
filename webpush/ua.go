@@ -26,7 +26,7 @@ type UASubscription struct {
 
 // Create a subscription.
 func (ua *UA) Subscribe() (sub UASubscription, err error) {
-	res, err := http.Post(ua.PushService+"/subscribe", "test/plain", nil)
+	res, err := http.Post(ua.PushService+"/subscribe", "text/plain", nil)
 
 	if err != nil {
 		return
