@@ -1,3 +1,4 @@
+//go:generate protoc --go_out=plugins=grpc:.  webpush.proto
 package webpush
 
 import (
