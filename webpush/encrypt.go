@@ -63,8 +63,8 @@ var (
 	authInfo = []byte("Content-Encoding: auth\x00")
 	curve    = elliptic.P256()
 
-	// Generate a random key pair to be used for the encryption. Overridable for
-	// testing.
+	// Generate a random EC256 key pair. Overridable for testing.
+	// Returns priv as a 16-byte point, and pub in uncompressed format, 33 bytes.
 	randomKey = func() (priv []byte, pub []byte, err error) {
 		priv, x, y, err := elliptic.GenerateKey(curve, rand.Reader)
 		if err != nil {
@@ -130,6 +130,9 @@ func SubscriptionFromJSON(b []byte) (*Subscription, error) {
 	return &Subscription{sub.Endpoint, key, auth}, nil
 }
 
+// TODO: rename ServerPublicKey to 'dhKey' or 'tmpKey' - to avoid confusion
+// with the VAPID ServerPublicKey
+
 // EncryptionResult stores the result of encrypting a message. The ciphertext is
 // the actual encrypted message, while the salt and server public key are
 // required to be sent to the client so that the message can be decrypted.
@@ -139,6 +142,8 @@ type EncryptionResult struct {
 	ServerPublicKey []byte
 }
 
+// TODO: input should be a []byte ( proto, etc )
+
 // Encrypt a message such that it can be sent using the Web Push protocol.
 // You can find out more about the various pieces:
 //    - https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding
@@ -146,22 +151,6 @@ type EncryptionResult struct {
 //    - https://tools.ietf.org/html/draft-ietf-webpush-encryption
 func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	plaintext := []byte(message)
-	if len(plaintext) > maxPayloadLength {
-		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
-	}
-
-	if len(sub.Key) == 0 {
-		return nil, fmt.Errorf("Subscription must include the client's public key")
-	}
-
-	if len(sub.Auth) == 0 {
-		return nil, fmt.Errorf("Subscription must include the client's auth value")
-	}
-
-	salt, err := randomSalt()
-	if err != nil {
-		return nil, err
-	}
 
 	// Use ECDH to derive a shared secret between us and the client. We generate
 	// a fresh private/public key pair at random every time we encrypt.
@@ -169,6 +158,33 @@ func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return EncryptWithTempKey(sub, plaintext, serverPrivateKey, serverPublicKey)
+}
+
+// Encrypt a message using Web Push protocol, reusing the temp key.
+// A new salt will be used. This is ~20% faster.
+func EncryptWithTempKey(sub *Subscription, plaintext []byte,
+	serverPrivateKey, serverPublicKey []byte) (*EncryptionResult, error) {
+
+	if len(plaintext) > maxPayloadLength {
+		return nil, fmt.Errorf("payload is too large. The max number of bytes is %d, input is %d bytes ", maxPayloadLength, len(plaintext))
+	}
+
+	if len(sub.Key) == 0 {
+		return nil, fmt.Errorf("subscription must include the client's public key")
+	}
+
+	if len(sub.Auth) == 0 {
+		return nil, fmt.Errorf("subscription must include the client's auth value")
+	}
+	salt, err := randomSalt()
+	if err != nil {
+		return nil, err
+	}
+
+	// Use ECDH to derive a shared secret between us and the client. We generate
+	// a fresh private/public key pair at random every time we encrypt.
 	secret, err := sharedSecret(curve, sub.Key, serverPrivateKey)
 	if err != nil {
 		return nil, err
@@ -293,7 +309,28 @@ func encrypt(plaintext, key, nonce []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	// TODO: to reduce allocations, allow out buffer to be passed in
+	// (all temp buffers can be kept in a context, size is bound)
 	return gcm.Seal([]byte{}, nonce, data, nil), nil
+}
+
+// Decrypt the message using AES128/GCM
+func decrypt(ciphertext, key, nonce []byte) (plaintext []byte, err error) {
+	c, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(c)
+	if err != nil {
+		return nil, err
+	}
+
+	plaintext, err = gcm.Open([]byte{}, nonce, ciphertext, nil)
+	if err == nil && len(plaintext) >= 2 {
+		// TODO: read the first 2 bytes, skip that many bytes padding
+		plaintext = plaintext[2:]
+	}
+	return
 }
 
 // Given the coordinates of a party A's public key and the bytes of party B's

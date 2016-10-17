@@ -214,3 +214,19 @@ func TestSharedSecret(t *testing.T) {
 		t.Error("Expected an error due to nil key")
 	}
 }
+
+func BenchmarkEncrypt(b *testing.B) {
+	sub, _ := SubscriptionFromJSON(subscriptionJSON)
+	for i := 0; i < b.N; i++ {
+		Encrypt(sub, "Hello world")
+	}
+}
+func BenchmarkEncryptWithKey(b *testing.B) {
+	sub, _ := SubscriptionFromJSON(subscriptionJSON)
+	plain := []byte("Hello world")
+	serverPrivateKey, serverPublicKey, _ := randomKey()
+
+	for i := 0; i < b.N; i++ {
+		EncryptWithTempKey(sub, plain, serverPrivateKey, serverPublicKey)
+	}
+}
