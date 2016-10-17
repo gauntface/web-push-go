@@ -67,11 +67,11 @@ type Sub struct {
 // Needs to be passed as "applicationServerKey" parameter in the subscription
 // options
 func genJsKey() {
-	pub64 := os.Getenv("VAPID_PUB")
+	pub64 := os.Getenv(EnvVapidPublic)
 
 	if len(pub64) == 0 {
 		fmt.Println()
-		fmt.Println("VAPID_PUB environment variable must be set")
+		fmt.Println(EnvVapidPublic + " environment variable must be set")
 		os.Exit(2)
 	}
 	publicUncomp, _ := base64.RawURLEncoding.DecodeString(pub64)
@@ -230,13 +230,12 @@ func main() {
 		fmt.Println("js\tGenerate js snippet for applicationServerKey, to use in subscribe calls")
 		fmt.Println("send\tEncrypt and send. Reads message from stdin")
 
-		// advanced:
 		fmt.Println()
 		fmt.Println("vapid\tGenerate VAPID token")
 		fmt.Println("curl\tEncrypt and generate curl command parameters. Reads message from stdin")
 		fmt.Println("send\tEncrypt and send. Reads message from stdin")
-		fmt.Println("server\tStart a micro server")
-		fmt.Println("ua\tStart a client connection ( user agent )")
+		//fmt.Println("server\tStart a micro push service")
+		//fmt.Println("ua\tStart a client connection ( user agent )")
 
 		os.Exit(1)
 	}
@@ -244,15 +243,6 @@ func main() {
 	switch os.Args[1] {
 	case "gen":
 		genKeys()
-	case "send":
-		send.Parse(os.Args[2:])
-		sendMessage()
-	case "server":
-		server.Parse(os.Args[2:])
-		startServer()
-	case "ua":
-		ua.Parse(os.Args[2:])
-		startClient()
 	case "js":
 		genJsKey()
 		os.Exit(0)
@@ -264,6 +254,12 @@ func main() {
 		sendMessage()
 	case "curl":
 		showCurl()
+	case "server":
+		server.Parse(os.Args[2:])
+		startServer()
+	case "ua":
+		ua.Parse(os.Args[2:])
+		startClient()
 	default:
 		flag.PrintDefaults()
 		os.Exit(1)
@@ -283,30 +279,9 @@ func startClient() {
 		if err != nil {
 			return
 		}
-		fmt.Println("" + sub)
+		fmt.Println(sub)
 	} else {
 
 	}
 }
 
-// Print VAPID curl header
-func curlVapid() {
-	pub64, priv64 := getKeys()
-
-	vapid := webpush.NewVapid(pub64, priv64)
-
-	if len(*sub) > 0 {
-		vapid.Sub = *sub
-	}
-
-	if len(*aud) > 0 {
-		// TODO: extract the base URL only, if full endpoint provided
-		fmt.Println("-H\"Authorization:WebPush " + vapid.Token(*aud) + "\"" +
-			" -H\"Crypto-Key:p256ecdsa=" + pub64 + "\"")
-	} else {
-		return
-	}
-
-=======
->>>>>>> c0f7bebf18dcb6bd6332b0659115ded7aa1fe06e
-}

@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package wpas;
 
+// Application server - mainly as baseline for testing.
 service WebpushAS {
   // Subscribe includes the subscription data from the UA and additional parameters that
   // the AS may need.
