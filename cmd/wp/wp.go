@@ -11,24 +11,32 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"github.com/costinm/push-encryption-go/webpush"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"os"
-
-	"github.com/costinm/push-encryption-go/webpush"
 )
 
 var (
-	vapid = flag.NewFlagSet("vapid", flag.ExitOnError)
-	curl  = flag.NewFlagSet("curl", flag.ExitOnError)
-	send  = flag.NewFlagSet("send", flag.ExitOnError)
+	vapid  = flag.NewFlagSet("vapid", flag.ExitOnError)
+	curl   = flag.NewFlagSet("curl", flag.ExitOnError)
+	send   = flag.NewFlagSet("send", flag.ExitOnError)
+	server = flag.NewFlagSet("server", flag.ExitOnError)
+	ua     = flag.NewFlagSet("ua", flag.ExitOnError)
 
 	sub = vapid.String("sub", "", "Optional email or URL identifying the sender")
 	// TODO: txt   = flag.String("txt", "", "Generate a VAPID key with full content")
 	aud = vapid.String("aud", "", "Generate a VAPID key with the given domain. Defaults to https://fcm.googleapis.com")
 
 	sendVerbose = send.Bool("v", false, "Show request and response body")
+	serverPort = server.String("port", ":5222", "Main port")
+	// Has to be separate because for now framing is trickier
+	serverPortH2 = server.String("portH2", ":5223", "Server to listen for long lived connections using standard protocol")
+
+	uaPort = ua.String("port", ":5222", "Main port")
+	// Has to be separate because for now framing is trickier
+	uaPortH2 = ua.String("portH2", ":5223", "Port for standard HTTP/2 connections")
 
 	curve = elliptic.P256()
 )
@@ -226,6 +234,9 @@ func main() {
 		fmt.Println()
 		fmt.Println("vapid\tGenerate VAPID token")
 		fmt.Println("curl\tEncrypt and generate curl command parameters. Reads message from stdin")
+		fmt.Println("send\tEncrypt and send. Reads message from stdin")
+		fmt.Println("server\tStart a micro server")
+		fmt.Println("ua\tStart a client connection ( user agent )")
 
 		os.Exit(1)
 	}
@@ -245,8 +256,57 @@ func main() {
 		sendMessage()
 	case "curl":
 		showCurl()
+		break
+	case "server":
+		server.Parse(os.Args[2:])
+		startServer()
+		break
+	case "ua":
+		ua.Parse(os.Args[2:])
+		startClient()
+		break
+
 	default:
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
+}
+
+func startServer() {
+	webpush.InitServer(*serverPort)
+
+}
+
+func startClient() {
+	ua := webpush.UA{}
+	pushSet := os.Getenv("PUSH_SET")
+	if len(pushSet) == 0 {
+		sub, err := ua.Subscribe()
+		if err != nil {
+			return
+		}
+		fmt.Println("" + sub)
+	} else {
+
+	}
+}
+
+// Print VAPID curl header
+func curlVapid() {
+	pub64, priv64 := getKeys()
+
+	vapid := webpush.NewVapid(pub64, priv64)
+
+	if len(*sub) > 0 {
+		vapid.Sub = *sub
+	}
+
+	if len(*aud) > 0 {
+		// TODO: extract the base URL only, if full endpoint provided
+		fmt.Println("-H\"Authorization:WebPush " + vapid.Token(*aud) + "\"" +
+			" -H\"Crypto-Key:p256ecdsa=" + pub64 + "\"")
+	} else {
+		return
+	}
+
 }

@@ -1,0 +1,140 @@
+syntax = "proto3";
+package webpush;
+
+// Webpush is a GRPC mapping of the webpush protocol. While webpush is defined using
+// Push promise, it is a bit tricky to support with many stacks today. As an alternative
+// this interface uses GRPC streams for delivery.
+service Webpush {
+
+  // Subscribe maps the the webpush subscribe request
+  rpc Subscribe (SubscribeRequest) returns (SubscribeResponse) {
+  }
+
+  // Monitor allows a UA to receive push messages from the push service
+  // Replaced push promises with a stream of Message objects.
+  rpc Monitor(MonitorRequest) returns (stream Message) {}
+
+  rpc Ack(AckRequest) returns (AckResponse) {}
+
+  // Push allows an application server to send messages to UA, using the push service.
+  rpc Push(PushRequest) returns (PushResponse) {}
+
+  // Monitor allows an AS to receive push messages receipts from the push service
+  // Replaced push promises with a stream of Message objects.
+  rpc Receipts(ReceiptRequest) returns (stream Receipt) {}
+}
+
+//
+message SubscribeRequest {
+
+    // A UA should group subscriptions in a set. First request from a
+    // UA will not include a set - it is typically a subscription associated with
+    // the UA itself.
+    string push_set = 1;
+
+    // Included as Crypto-Key: p256ecdsa parameter.
+    // Corresponds to the applicationServerKey parameter in the PushSubscriptionOptions in
+    // the W3C API
+    string sender_vapid = 2;
+}
+
+// Subscribe response includes the elements in the spec.
+message SubscribeResponse {
+    // Returned as Link: rel="urn:ietf:params:push"
+    // Spec examples use a full path ( /push/xxxx1 )
+    // TODO: clarify if it can be a full URL
+    string push = 1;
+
+    // Optional response: it
+    // returned as Link: rel=urn:ietf:params:push:set
+    // Spec examples use a full path ( /subscription-set/xxxx2 ).
+    // TODO: clarify it can be a full URL, like subscription
+    string push_set = 2;
+
+    // Push subscription resource. This is the full URL where the UA will use to
+    // receive the messages, using the PUSH promise http2 frame.
+    //
+    //
+    // Returned as Location header in the spec
+    string location = 3;
+}
+
+message PushRequest {
+
+    // The value returned in the SubscribeResponse push, without the hostname.
+    string push = 1;
+    int32 ttl = 2;
+
+    bytes data = 3;
+
+    string urgency = 4;
+
+    // Prefer header indicating delivery receipt request.
+    bool respond_async = 5;
+
+    string topic = 6;
+
+    string content_encoding = 7;
+
+    string salt = 8;
+
+    string dh = 9;
+}
+
+message PushResponse {
+  string message_id = 1;
+
+  // If request includes the respond_async parameter.
+  //
+  string push_receipt = 2;
+
+}
+
+message MonitorRequest {
+    // This is the push or push_set in the subscribe response.
+    string push_set = 1;
+
+    // JWT token, signed with key
+    string authorization = 2;
+
+    // Public key used for signing, identifies sender/receiver
+    string key = 3;
+}
+
+// Message is returned as PUSH PROMISE frames in the spec. The gRPC interface defines
+// it as a stream, returned in normal DATA frames.
+message Message {
+    string message_id = 1;
+
+    // Maps to the SubscribeResponse push parameter, returned as Link rel="urn:ietf:params:push"
+    // in the push promise.
+    string push = 2;
+
+    bytes data = 3;
+
+    string sender_vapid = 4;
+
+    string content_encoding = 7;
+
+    string salt = 8;
+
+    string dh = 9;
+}
+
+message AckRequest {
+    string message_id = 1;
+
+    // Optional, not part of the spec: if the subscribe request was authenticated with VAPID,
+    // the delete should also be authenticated with same VAPID key
+}
+
+message AckResponse {
+}
+
+message ReceiptRequest {
+    string receipt_subscription = 1;
+}
+
+message Receipt {
+    string message_id = 1;
+}
