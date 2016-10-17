@@ -50,14 +50,6 @@ type Target struct {
 	Messages []Message
 }
 
-type Message struct {
-	Body []byte
-	TTL  int
-	Key  string
-	Salt string
-	ID   string
-}
-
 func InitServer(port string) (err error) {
 	http.HandleFunc("/subscribe", SubscribeHandler)
 	http.HandleFunc("/p", Poll)
@@ -183,7 +175,7 @@ func SendHandler(res http.ResponseWriter, req *http.Request) {
 	ch, ok := channels.m[token]
 	channels.Unlock()
 
-	m := &Message{Body: body}
+	m := &Message{Data: body}
 
 	if !ok {
 		targets.Lock()

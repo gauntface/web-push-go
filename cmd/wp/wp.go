@@ -29,6 +29,7 @@ var (
 	// TODO: txt   = flag.String("txt", "", "Generate a VAPID key with full content")
 	aud = vapid.String("aud", "", "Generate a VAPID key with the given domain. Defaults to https://fcm.googleapis.com")
 
+	sendVerbose = send.Bool("v", false, "Show request and response body")
 	serverPort = server.String("port", ":5222", "Main port")
 	// Has to be separate because for now framing is trickier
 	serverPortH2 = server.String("portH2", ":5223", "Server to listen for long lived connections using standard protocol")
@@ -36,7 +37,6 @@ var (
 	uaPort = ua.String("port", ":5222", "Main port")
 	// Has to be separate because for now framing is trickier
 	uaPortH2 = ua.String("portH2", ":5223", "Port for standard HTTP/2 connections")
-	sendVerbose = send.Bool("v", false, "Show request and response body")
 
 	curve = elliptic.P256()
 )
@@ -245,7 +245,6 @@ func main() {
 		genKeys()
 	case "js":
 		genJsKey()
-		os.Exit(0)
 	case "vapid":
 		vapid.Parse(os.Args[2:])
 		genVapid()
