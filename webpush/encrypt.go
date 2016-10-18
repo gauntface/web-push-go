@@ -130,6 +130,9 @@ func SubscriptionFromJSON(b []byte) (*Subscription, error) {
 	return &Subscription{sub.Endpoint, key, auth}, nil
 }
 
+// TODO: rename ServerPublicKey to 'dhKey' or 'tmpKey' - to avoid confusion
+// with the VAPID ServerPublicKey
+
 // EncryptionResult stores the result of encrypting a message. The ciphertext is
 // the actual encrypted message, while the salt and server public key are
 // required to be sent to the client so that the message can be decrypted.
@@ -138,6 +141,25 @@ type EncryptionResult struct {
 	Salt            []byte
 	ServerPublicKey []byte
 }
+
+// Decrypt an encrypted messages.
+func Decrypt(sub *Subscription, crypt *EncryptionResult, subPrivate []byte) (plain []byte, err error) {
+	secret := sharedSecret(curve, crypt.ServerPublicKey, subPrivate)
+	prk := hkdf(sub.Auth, secret, authInfo, 32)
+
+	// Derive the Content Encryption Key and nonce
+	ctx := newContext(sub.Key, crypt.ServerPublicKey)
+	cek := newCEK(ctx, crypt.Salt, prk)
+	nonce := newNonce(ctx, crypt.Salt, prk)
+
+	plain, err = decrypt(crypt.Ciphertext, cek, nonce)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+// TODO: input should be a []byte ( proto, etc )
 
 // Encrypt a message such that it can be sent using the Web Push protocol.
 // You can find out more about the various pieces:
@@ -293,7 +315,28 @@ func encrypt(plaintext, key, nonce []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	// TODO: to reduce allocations, allow out buffer to be passed in
+	// (all temp buffers can be kept in a context, size is bound)
 	return gcm.Seal([]byte{}, nonce, data, nil), nil
+}
+
+// Decrypt the message using AES128/GCM
+func decrypt(ciphertext, key, nonce []byte) (plaintext []byte, err error) {
+	c, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(c)
+	if err != nil {
+		return nil, err
+	}
+
+	plaintext, err = gcm.Open([]byte{}, nonce, ciphertext, nil)
+	if err == nil && len(plaintext) >= 2 {
+		// TODO: read the first 2 bytes, skip that many bytes padding
+		plaintext = plaintext[2:]
+	}
+	return
 }
 
 // Given the coordinates of a party A's public key and the bytes of party B's
