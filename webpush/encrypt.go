@@ -194,6 +194,7 @@ func Encrypt(sub *Subscription, message string, version Version) (*EncryptionRes
 	if err != nil {
 		return nil, err
 	}
+
 	secret, err := sharedSecret(curve, sub.Key, serverPrivateKey)
 	if err != nil {
 		return nil, err
@@ -295,8 +296,10 @@ func newInfo(infoType string, context []byte) []byte {
 // https://tools.ietf.org/html/draft-ietf-webpush-encryption-07#section-3.3
 func newKeyInfo(userAgentPublicKey, serverPublicKey []byte) []byte {
 	var info []byte
-	info = append(keyInfoPrefix, userAgentPublicKey...)
-	return append(info, serverPublicKey...)
+	info = append(info, keyInfoPrefix...)
+	info = append(info, userAgentPublicKey...)
+	info = append(info, serverPublicKey...)
+	return info
 }
 
 // Returns an 86 octet header. See section 2.1 of:
@@ -312,8 +315,8 @@ func appendHeader(salt, serverPublicKey, ciphertext []byte) []byte {
 	result = append(result, salt...)
 	result = append(result, cplenbuf...)
 	result = append(result, serverPublicKey...)
-
-	return append(result, ciphertext...)
+	result = append(result, ciphertext...)
+	return result
 }
 
 // HMAC-based Extract-and-Expand Key Derivation Function (HKDF)

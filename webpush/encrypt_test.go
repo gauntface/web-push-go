@@ -181,7 +181,7 @@ func rfcAes128gcmSalt() ([]byte, error) {
 }
 
 func rfcAes128gcmKeys() ([]byte, []byte, error) {
-	priv, _ := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString("BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8")
+	priv, _ := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString("yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw")
 
 	// Generate the right public key for the static private key
 	x, y := curve.ScalarMult(curve.Params().Gx, curve.Params().Gy, priv)
@@ -226,22 +226,22 @@ func TestAesgcmRfcVectors(t *testing.T) {
 // that the code conforms to the RFC
 // See: https://tools.ietf.org/html/draft-ietf-webpush-encryption-07#appendix-A
 func TestAes128gcmRfcVectors(t *testing.T) {
-	defer stubFuncs(rfcAesgcmSalt, rfcAesgcmKeys)()
+	defer stubFuncs(rfcAes128gcmSalt, rfcAes128gcmKeys)()
 
 	b64 := base64.URLEncoding.WithPadding(base64.NoPadding)
 
-	auth, err := b64.DecodeString(rfcAesgcmAuth)
+	auth, err := b64.DecodeString(rfcAes128gcmAuth)
 	if err != nil {
 		t.Error(err)
 	}
-	key, err := b64.DecodeString(rfcAesgcmPublic)
+	key, err := b64.DecodeString(rfcAes128gcmPublic)
 	if err != nil {
 		t.Error(err)
 	}
 
 	sub := &Subscription{Auth: auth, Key: key}
 
-	result, err := Encrypt(sub, message, AES128GCM)
+	result, err := Encrypt(sub, aes128gcmMessage, AES128GCM)
 	if err != nil {
 		t.Error(err)
 	}
@@ -251,7 +251,7 @@ func TestAes128gcmRfcVectors(t *testing.T) {
 		t.Error(err)
 	}
 	if !bytes.Equal(result.Ciphertext, expCiphertext) {
-		t.Errorf("Ciphertext was %v, expected %v", result.Ciphertext, expCiphertext)
+		t.Errorf("Ciphertext was %v, expected %v", b64.EncodeToString(result.Ciphertext), rfcAes128gcmCipher)
 	}
 }
 
