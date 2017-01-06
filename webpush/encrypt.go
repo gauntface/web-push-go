@@ -173,12 +173,12 @@ func Encrypt(sub *Subscription, message string, version Version) (*EncryptionRes
 		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
 	}
 
-  // sub.Key is the user agent's public key.
+	// sub.Key is the user agent's public key.
 	if len(sub.Key) == 0 {
 		return nil, fmt.Errorf("Subscription must include the client's public key")
 	}
 
-	// sub.Key is the authentication secret.
+	// sub.Auth is the authentication secret.
 	if len(sub.Auth) == 0 {
 		return nil, fmt.Errorf("Subscription must include the client's auth value")
 	}
@@ -306,8 +306,8 @@ func newKeyInfo(userAgentPublicKey, serverPublicKey []byte) []byte {
 // https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding-06#section-2.1
 func appendHeader(salt, serverPublicKey, ciphertext []byte) []byte {
 	var result []byte
-  // A push service is not required to support more than 4096 octets of
-  // payload body so the record size can be at most 4096.
+	// A push service is not required to support more than 4096 octets of
+	// payload body so the record size can be at most 4096.
 	cplen := uint32(4096)
 	cplenbuf := make([]byte, 5)
 	binary.BigEndian.PutUint32(cplenbuf, cplen)
