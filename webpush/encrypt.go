@@ -62,7 +62,7 @@ const (
 	// The version that is widely deployed with WebPush (as of 2016-11).
 	AESGCM = iota
 	// The most recent version, the salt, record size and key identifier
-  // are included in a header that is part of the encrypted content coding.
+	// are included in a header that is part of the encrypted content coding.
 	AES128GCM
 )
 
