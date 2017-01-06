@@ -76,9 +76,10 @@ func (v Version) String() string {
 	return ""
 }
 
-
 const (
-	maxPayloadLength = 4078
+	aesgcmMaxPayloadLength = 4078
+	// due to binary message header.
+	aes128gcmMaxPayloadLength = 4057
 )
 
 var (
@@ -169,6 +170,13 @@ type EncryptionResult struct {
 //    - https://tools.ietf.org/html/draft-ietf-webpush-encryption
 func Encrypt(sub *Subscription, message string, version Version) (*EncryptionResult, error) {
 	plaintext := []byte(message)
+
+	var maxPayloadLength int
+	if version == AESGCM {
+		maxPayloadLength = aesgcmMaxPayloadLength
+	} else {
+		maxPayloadLength = aes128gcmMaxPayloadLength
+	}
 	if len(plaintext) > maxPayloadLength {
 		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
 	}

@@ -118,14 +118,24 @@ func TestEncrypt(t *testing.T) {
 		t.Error("Couldn't decode JSON subscription")
 	}
 
-	// 4079 byted should be too big
+	// 4079 bytes should be too big for aesgcm
 	_, err = Encrypt(sub, strings.Repeat(" ", 4079), AESGCM)
 	if err == nil {
 		t.Error("Expected to get an error due to long payload")
 	}
+	// 4079 bytes should be too big for aes128gcm
+	_, err = Encrypt(sub, strings.Repeat(" ", 4079), AES128GCM)
+	if err == nil {
+		t.Error("Expected to get an error due to long payload")
+	}
 
-	// 4078 bytes should be fine
+	// 4078 bytes should be fine aesgcm
 	_, err = Encrypt(sub, strings.Repeat(" ", 4078), AESGCM)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	// 4057 bytes should be fine aes128gcm
+	_, err = Encrypt(sub, strings.Repeat(" ", 4057), AES128GCM)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
