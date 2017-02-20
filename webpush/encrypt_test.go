@@ -42,8 +42,7 @@ var (
 	rfcAes128gcmPublic = "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
 
 	rfcAesgcmCipher = "6nqAQUME8hNqw5J3kl8cpVVJylXKYqZOeseZG8UueKpA"
-	rfcAes128gcmCipher = "DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A-l_-xdB7y6XwHboeEO-lBPsSXN9axUBN3F53dcg7-wSrTIXywmEmPfWg78ZJX4LQzTaEaZMuHcWDuK6g"
-
+	rfcAes128gcmCipher = "DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN"
 	rfcAesgcmAuth   = "R29vIGdvbyBnJyBqb29iIQ"
 	rfcAes128gcmAuth   = "BTBZMqHH6r4Tts7J_aSIgg"
 )

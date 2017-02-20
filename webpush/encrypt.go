@@ -317,13 +317,14 @@ func appendHeader(salt, serverPublicKey, ciphertext []byte) []byte {
 	// A push service is not required to support more than 4096 octets of
 	// payload body so the record size can be at most 4096.
 	cplen := uint32(4096)
-	cplenbuf := make([]byte, 5)
+	cplenbuf := make([]byte, binary.MaxVarintLen32)
 	binary.BigEndian.PutUint32(cplenbuf, cplen)
 
 	result = append(result, salt...)
 	result = append(result, cplenbuf...)
 	result = append(result, serverPublicKey...)
 	result = append(result, ciphertext...)
+
 	return result
 }
 
@@ -358,13 +359,7 @@ func hkdf(salt, ikm, info []byte, length int) []byte {
 
 // Encrypt the plaintext message using AES128/GCM
 func encrypt(plaintext, key, nonce []byte) ([]byte, error) {
-	// Add padding. There is a uint16 size followed by that number of bytes of
-	// padding.
-	// TODO: Right now we leave the size at zero. We should add a padding option
-	// that allows the payload size to be obscured.
-	padding := make([]byte, 2)
-	data := append(padding, plaintext...)
-
+	data := append(plaintext, []byte{0x02}...)
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
