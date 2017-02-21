@@ -361,15 +361,15 @@ func hkdf(salt, ikm, info []byte, length int) []byte {
 func encrypt(plaintext, key, nonce []byte, version Version) ([]byte, error) {
 	var data []byte
 	if version == AES128GCM {
-	  data = append(plaintext, []byte{0x02}...)
-  } else {
-	  // Add padding. There is a uint16 size followed by that number of bytes of
+		data = append(plaintext, []byte{0x02}...)
+	} else {
+		// Add padding. There is a uint16 size followed by that number of bytes of
 		// padding.
 		// TODO: Right now we leave the size at zero. We should add a padding option
 		// that allows the payload size to be obscured.
 		padding := make([]byte, 2)
 		data = append(padding, plaintext...)
-  }
+  	}
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
