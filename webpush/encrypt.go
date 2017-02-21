@@ -232,7 +232,7 @@ func Encrypt(sub *Subscription, message string, version Version) (*EncryptionRes
 	nonce := newNonce(ctx, salt, prk)
 
 	// Do the actual encryption
-	ciphertext, err := encrypt(plaintext, cek, nonce)
+	ciphertext, err := encrypt(plaintext, cek, nonce, version)
 	if err != nil {
 		return nil, err
 	}
@@ -358,8 +358,18 @@ func hkdf(salt, ikm, info []byte, length int) []byte {
 }
 
 // Encrypt the plaintext message using AES128/GCM
-func encrypt(plaintext, key, nonce []byte) ([]byte, error) {
-	data := append(plaintext, []byte{0x02}...)
+func encrypt(plaintext, key, nonce []byte, version Version) ([]byte, error) {
+	var data []byte
+	if version == AES128GCM {
+	  data = append(plaintext, []byte{0x02}...)
+  } else {
+	  // Add padding. There is a uint16 size followed by that number of bytes of
+		// padding.
+		// TODO: Right now we leave the size at zero. We should add a padding option
+		// that allows the payload size to be obscured.
+		padding := make([]byte, 2)
+		data = append(padding, plaintext...)
+  }
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
