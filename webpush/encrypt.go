@@ -317,9 +317,9 @@ func appendHeader(salt, serverPublicKey, ciphertext []byte) []byte {
 	// A push service is not required to support more than 4096 octets of
 	// payload body so the record size can be at most 4096.
 	cplen := uint32(4096)
-	cplenbuf := make([]byte, binary.MaxVarintLen32)
+	cplenbuf := make([]byte, 5)
 	binary.BigEndian.PutUint32(cplenbuf, cplen)
-
+	binary.BigEndian.PutUint16(cplenbuf[3:], uint16(len(serverPublicKey)))
 	result = append(result, salt...)
 	result = append(result, cplenbuf...)
 	result = append(result, serverPublicKey...)
