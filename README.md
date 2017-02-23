@@ -25,7 +25,6 @@ Send a message:
 
 ```
 import (
-  "strings"
   "github.com/googlechrome/push-encryption-go/webpush"
 )
 
