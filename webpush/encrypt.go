@@ -73,7 +73,7 @@ func (v Version) String() string {
 	case AES128GCM:
 		return "aes128gcm"
 	}
-	return ""
+	panic("A valid encryption version must be used")
 }
 
 const (
@@ -181,7 +181,7 @@ func Encrypt(sub *Subscription, message string, version Version) (*EncryptionRes
 		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
 	}
 
-	// sub.Key is the user agent's public key.
+	// sub.Key is the p256dh key.
 	if len(sub.Key) == 0 {
 		return nil, fmt.Errorf("Subscription must include the client's public key")
 	}
@@ -302,10 +302,10 @@ func newInfo(infoType string, context []byte) []byte {
 
 // Returns a keying material. See sections of
 // https://tools.ietf.org/html/draft-ietf-webpush-encryption-07#section-3.3
-func newKeyInfo(userAgentPublicKey, serverPublicKey []byte) []byte {
+func newKeyInfo(subscriptionPublicKey, serverPublicKey []byte) []byte {
 	var info []byte
 	info = append(info, keyInfoPrefix...)
-	info = append(info, userAgentPublicKey...)
+	info = append(info, subscriptionPublicKey...)
 	info = append(info, serverPublicKey...)
 	return info
 }
