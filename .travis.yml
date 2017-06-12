@@ -10,7 +10,11 @@ before_install:
 
 install:
   - cd webpush
+
+  # golint returns a zero code regardless of errors. This prints out messages..
   - golint
-  - gofmt -d -e -s .
+  # .... this errors if any output is printed to stdout
+  - test -z "$$(golint .)"
+
   - go vet
   - go test -v
