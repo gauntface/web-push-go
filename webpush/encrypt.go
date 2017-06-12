@@ -147,7 +147,7 @@ type EncryptionResult struct {
 func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	plaintext := []byte(message)
 	if len(plaintext) > maxPayloadLength {
-		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
+		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes", maxPayloadLength, len(plaintext))
 	}
 
 	if len(sub.Key) == 0 {
@@ -301,7 +301,7 @@ func encrypt(plaintext, key, nonce []byte) ([]byte, error) {
 func sharedSecret(curve elliptic.Curve, pub, priv []byte) ([]byte, error) {
 	publicX, publicY := elliptic.Unmarshal(curve, pub)
 	if publicX == nil {
-		return nil, fmt.Errorf("Couldn't unmarshal public key. Not a valid point on the curve.")
+		return nil, fmt.Errorf("Couldn't unmarshal public key. Not a valid point on the curve")
 	}
 	x, _ := curve.ScalarMult(publicX, publicY, priv)
 	return x.Bytes(), nil
