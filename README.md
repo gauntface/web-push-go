@@ -25,14 +25,13 @@ Send a message:
 
 ```
 import (
-  "strings"
   "github.com/googlechrome/push-encryption-go/webpush"
 )
 
 func main() {
   // The values that make up the Subscription struct come from the browser
   sub := &webpush.Subscription{endpoint, key, auth}
-  webpush.Send(nil, sub, "Yay! Web Push!", nil)
+  webpush.Send(nil, sub, "Yay! Web Push!", "")
 }
 ```
 

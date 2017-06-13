@@ -17,14 +17,13 @@
 //
 // Sending a message:
 //   import (
-//     "strings"
 //     "github.com/googlechrome/push-encryption-go/webpush"
 //   )
 //
 //   func main() {
 //     // The values that make up the Subscription struct come from the browser
 //     sub := &webpush.Subscription{endpoint, key, auth}
-//     webpush.Send(nil, sub, "Yay! Web Push!", nil)
+//     webpush.Send(nil, sub, "Yay! Web Push!", "")
 //   }
 //
 // You can turn a JSON string representation of a PushSubscription object you
@@ -51,6 +50,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -151,11 +151,11 @@ func Encrypt(sub *Subscription, message string) (*EncryptionResult, error) {
 	}
 
 	if len(sub.Key) == 0 {
-		return nil, fmt.Errorf("Subscription must include the client's public key")
+		return nil, errors.New("Subscription must include the client's public key")
 	}
 
 	if len(sub.Auth) == 0 {
-		return nil, fmt.Errorf("Subscription must include the client's auth value")
+		return nil, errors.New("Subscription must include the client's auth value")
 	}
 
 	salt, err := randomSalt()
@@ -301,7 +301,7 @@ func encrypt(plaintext, key, nonce []byte) ([]byte, error) {
 func sharedSecret(curve elliptic.Curve, pub, priv []byte) ([]byte, error) {
 	publicX, publicY := elliptic.Unmarshal(curve, pub)
 	if publicX == nil {
-		return nil, fmt.Errorf("Couldn't unmarshal public key. Not a valid point on the curve")
+		return nil, errors.New("Couldn't unmarshal public key. Not a valid point on the curve")
 	}
 	x, _ := curve.ScalarMult(publicX, publicY, priv)
 	return x.Bytes(), nil
