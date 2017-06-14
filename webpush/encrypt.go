@@ -175,17 +175,6 @@ type EncryptionResult struct {
 //    - https://en.wikipedia.org/wiki/Elliptic_curve_Diffie%E2%80%93Hellman
 //    - https://tools.ietf.org/html/draft-ietf-webpush-encryption
 func Encrypt(sub *Subscription, message string, encoding ContentEncoding) (*EncryptionResult, error) {
-	plaintext := []byte(message)
-
-	var maxPayloadLength = aes128gcmMaxPayloadLength
-	if encoding == AESGCM {
-		maxPayloadLength = aesgcmMaxPayloadLength
-	}
-
-	if len(plaintext) > maxPayloadLength {
-		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
-	}
-
 	// sub.Key is the p256dh key.
 	if len(sub.Key) == 0 {
 		return nil, fmt.Errorf("Subscription must include the client's public key")
@@ -194,6 +183,16 @@ func Encrypt(sub *Subscription, message string, encoding ContentEncoding) (*Encr
 	// sub.Auth is the authentication secret.
 	if len(sub.Auth) == 0 {
 		return nil, fmt.Errorf("Subscription must include the client's auth value")
+	}
+
+	plaintext := []byte(message)
+	var maxPayloadLength = aes128gcmMaxPayloadLength
+	if encoding == AESGCM {
+		maxPayloadLength = aesgcmMaxPayloadLength
+	}
+
+	if len(plaintext) > maxPayloadLength {
+		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
 	}
 
 	salt, err := randomSalt()
