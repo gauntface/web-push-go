@@ -55,12 +55,12 @@ import (
 	"strings"
 )
 
-// Encryption encoding.
+// ContentEncoding indicates the version of encoding.
 type ContentEncoding int
 
 const (
 	// The encoding that is widely deployed with WebPush (as of 2016-11).
-	AESGCM = iota
+	AESGCM ContentEncoding = iota
 	// The most recent encoding, the salt, record size and key identifier
 	// are included in a header that is part of the encrypted content coding.
 	AES128GCM
@@ -78,8 +78,12 @@ func (v ContentEncoding) String() string {
 
 const (
 	aesgcmMaxPayloadLength = 4078
-	// due to binary message header.
+	// Due to the additional binary message header, the max playload length for
+	// aes128gcm is shorter than aesgcm.
 	aes128gcmMaxPayloadLength = 4057
+	// A push service is not required to support more than 4096 octets of
+	// payload body so the record size can be at most 4096.
+	maxPayloadRecordSize = 4096
 )
 
 var (
@@ -87,7 +91,7 @@ var (
 	// See here for details on the prefix:
 	// https://tools.ietf.org/html/draft-ietf-webpush-encryption-08#section-3.3
 	keyInfoPrefix = []byte("WebPush: info\x00")
-	curve    = elliptic.P256()
+	curve         = elliptic.P256()
 
 	// Generate a random key pair to be used for the encryption. Overridable for
 	// testing.
@@ -173,12 +177,11 @@ type EncryptionResult struct {
 func Encrypt(sub *Subscription, message string, encoding ContentEncoding) (*EncryptionResult, error) {
 	plaintext := []byte(message)
 
-	var maxPayloadLength int
+	var maxPayloadLength = aes128gcmMaxPayloadLength
 	if encoding == AESGCM {
 		maxPayloadLength = aesgcmMaxPayloadLength
-	} else {
-		maxPayloadLength = aes128gcmMaxPayloadLength
 	}
+
 	if len(plaintext) > maxPayloadLength {
 		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
 	}
@@ -213,7 +216,7 @@ func Encrypt(sub *Subscription, message string, encoding ContentEncoding) (*Encr
 	// Derive a Pseudo-Random Key (prk) that can be used to further derive our
 	// other encryption parameters.
 	var prk []byte
-	if (encoding == AESGCM) {
+	if encoding == AESGCM {
 		// aesgcm derivations are described in
 		// https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding-00
 		prk = hkdf(sub.Auth, secret, authInfo, 32)
@@ -291,7 +294,7 @@ func newContext(clientPublicKey, serverPublicKey []byte) []byte {
 // The context argument should match what newContext creates
 func newInfo(infoType string, context []byte) []byte {
 	var info []byte
-	info = append(info, []byte("Content-Encoding: ")...)
+	info = append([]byte{}, []byte("Content-Encoding: ")...)
 	info = append(info, []byte(infoType)...)
 	info = append(info, 0)
 	// For aes128gcm ctx is not needed.
@@ -305,10 +308,10 @@ func newInfo(infoType string, context []byte) []byte {
 // Returns a keying material. See sections of
 // https://tools.ietf.org/html/draft-ietf-webpush-encryption-07#section-3.3
 func newKeyInfo(subscriptionPublicKey, serverPublicKey []byte) []byte {
-	var info []byte
-	info = append(info, keyInfoPrefix...)
-	info = append(info, subscriptionPublicKey...)
-	info = append(info, serverPublicKey...)
+	info := make([]byte, len(keyInfoPrefix)+len(subscriptionPublicKey)+len(serverPublicKey))
+	n := copy(info, keyInfoPrefix)
+	n += copy(info[n:], subscriptionPublicKey)
+	copy(info[n:], serverPublicKey)
 	return info
 }
 
@@ -318,7 +321,7 @@ func appendHeader(salt, serverPublicKey, ciphertext []byte) []byte {
 	var result []byte
 	// A push service is not required to support more than 4096 octets of
 	// payload body so the record size can be at most 4096.
-	plen := uint32(4096)
+	plen := uint32(maxPayloadRecordSize)
 	plenbuf := make([]byte, 5)
 	binary.BigEndian.PutUint32(plenbuf, plen)
 	binary.BigEndian.PutUint16(plenbuf[3:], uint16(len(serverPublicKey)))
@@ -364,7 +367,7 @@ func encrypt(plaintext, key, nonce []byte, encoding ContentEncoding) ([]byte, er
 	var data []byte
 	if encoding == AES128GCM {
 		// The padding delimiter octet MUST be checked, values other than 0x02 MUST
-    // cause the message to be discarded.
+		// cause the message to be discarded.
 		// See here for more details for restrictions on use of "aes128gcm":
 		// https://tools.ietf.org/html/draft-ietf-webpush-encryption-08#section-4
 		data = append(plaintext, []byte{0x02}...)
@@ -373,9 +376,8 @@ func encrypt(plaintext, key, nonce []byte, encoding ContentEncoding) ([]byte, er
 		// padding.
 		// TODO: Right now we leave the size at zero. We should add a padding option
 		// that allows the payload size to be obscured.
-		padding := make([]byte, 2)
-		data = append(padding, plaintext...)
-  	}
+		data = append([]byte{0, 0}, plaintext...)
+	}
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
