@@ -254,7 +254,7 @@ func Encrypt(sub *Subscription, message string, encoding ContentEncoding) (*Encr
 }
 
 func newCEK(ctx, salt, prk []byte, encoding ContentEncoding) ([]byte, error) {
-	if encoding != AESGCM &&  encoding != AES128GCM {
+	if encoding != AESGCM && encoding != AES128GCM {
 		return []byte{}, fmt.Errorf("Content Encoding is not recognized, you must use either AESGCM or AES128GCM.")
 	}
 	info := newInfo(encoding.String(), ctx)
@@ -300,7 +300,7 @@ func newContext(clientPublicKey, serverPublicKey []byte) []byte {
 // The context argument should match what newContext creates
 func newInfo(infoType string, context []byte) []byte {
 	info := append([]byte("Content-Encoding: "), []byte(infoType)...)
-  info = append(info, 0)
+	info = append(info, 0)
 	// For aes128gcm ctx is not needed.
 	if len(context) > 0 {
 		info = append(info, []byte("P-256")...)
