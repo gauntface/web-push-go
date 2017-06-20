@@ -253,12 +253,12 @@ func Encrypt(sub *Subscription, message string, encoding ContentEncoding) (*Encr
 	return &EncryptionResult{ciphertext, salt, serverPublicKey}, nil
 }
 
-func newCEK(ctx, salt, prk []byte, encoding ContentEncoding) []byte {
-	if encoding != ContentEncoding.AESGCM ||  encoding != AES128GCM{
+func newCEK(ctx, salt, prk []byte, encoding ContentEncoding) ([]byte, error) {
+	if encoding != AESGCM &&  encoding != AES128GCM {
 		return []byte{}, fmt.Errorf("Content Encoding is not recognized, you must use either AESGCM or AES128GCM.")
 	}
 	info := newInfo(encoding.String(), ctx)
-	return hkdf(salt, prk, info, 16)
+	return hkdf(salt, prk, info, 16), nil
 }
 
 func newNonce(ctx, salt, prk []byte) []byte {
