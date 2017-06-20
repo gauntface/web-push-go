@@ -208,26 +208,26 @@ func TestAESgcmRfcVectors(t *testing.T) {
 
 	auth, err := b64.DecodeString(rfcAESgcmAuth)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	key, err := b64.DecodeString(rfcAESgcmPublic)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	sub := &Subscription{Auth: auth, Key: key}
 
 	result, err := Encrypt(sub, message, AESGCM)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	expCiphertext, err := b64.DecodeString(rfcAESgcmCipher)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if !bytes.Equal(result.Ciphertext, expCiphertext) {
-		t.Errorf("Ciphertext was %v, expected %v", result.Ciphertext, expCiphertext)
+		t.Fatalf("Ciphertext was %v, expected %v", result.Ciphertext, expCiphertext)
 	}
 }
 
@@ -240,7 +240,7 @@ func TestAES128gcmRfcVectors(t *testing.T) {
 
 	auth, err := b64.DecodeString(rfcAES128gcmAuth)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	key, err := b64.DecodeString(rfcAES128gcmPublic)
 	if err != nil {
@@ -250,15 +250,15 @@ func TestAES128gcmRfcVectors(t *testing.T) {
 	sub := &Subscription{Auth: auth, Key: key}
 	result, err := Encrypt(sub, aes128gcmMessage, AES128GCM)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	expCiphertext, err := b64.DecodeString(rfcAES128gcmCipher)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if !bytes.Equal(result.Ciphertext, expCiphertext) {
-		t.Errorf("Ciphertext was %v, expected %v", b64.EncodeToString(result.Ciphertext), rfcAES128gcmCipher)
+		t.Fatalf("Ciphertext was %v, expected %v", b64.EncodeToString(result.Ciphertext), rfcAES128gcmCipher)
 	}
 }
 

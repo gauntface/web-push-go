@@ -73,7 +73,7 @@ func (v ContentEncoding) String() string {
 	case AES128GCM:
 		return "aes128gcm"
 	}
-	panic("A valid content encoding must be used")
+	return "unknown"
 }
 
 const (
@@ -186,23 +186,14 @@ func Encrypt(sub *Subscription, message string, encoding ContentEncoding) (*Encr
 	}
 
 	plaintext := []byte(message)
-	var maxPayloadLength = aes128gcmMaxPayloadLength
+
+	maxPayloadLength := aes128gcmMaxPayloadLength
 	if encoding == AESGCM {
 		maxPayloadLength = aesgcmMaxPayloadLength
 	}
 
-	if len(plaintext) > maxPayloadLength {
-		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
-	}
-
-	plaintext := []byte(message)
-	var maxPayloadLength = aes128gcmMaxPayloadLength
-	if encoding == AESGCM {
-		maxPayloadLength = aesgcmMaxPayloadLength
-	}
-
-	if len(plaintext) > maxPayloadLength {
-		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
+	if n := len(plaintext); n > maxPayloadLength {
+		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, n)
 	}
 
 	salt, err := randomSalt()
@@ -242,7 +233,10 @@ func Encrypt(sub *Subscription, message string, encoding ContentEncoding) (*Encr
 	if encoding == AESGCM {
 		ctx = newContext(sub.Key, serverPublicKey)
 	}
-	cek := newCEK(ctx, salt, prk, encoding)
+	cek, err := newCEK(ctx, salt, prk, encoding)
+	if err != nil {
+		return nil, err
+	}
 	nonce := newNonce(ctx, salt, prk)
 
 	// Do the actual encryption
@@ -260,6 +254,9 @@ func Encrypt(sub *Subscription, message string, encoding ContentEncoding) (*Encr
 }
 
 func newCEK(ctx, salt, prk []byte, encoding ContentEncoding) []byte {
+	if encoding != ContentEncoding.AESGCM ||  encoding != AES128GCM{
+		return []byte{}, fmt.Errorf("Content Encoding is not recognized, you must use either AESGCM or AES128GCM.")
+	}
 	info := newInfo(encoding.String(), ctx)
 	return hkdf(salt, prk, info, 16)
 }
@@ -302,10 +299,8 @@ func newContext(clientPublicKey, serverPublicKey []byte) []byte {
 // https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding-00.
 // The context argument should match what newContext creates
 func newInfo(infoType string, context []byte) []byte {
-	var info []byte
-	info = append([]byte{}, []byte("Content-Encoding: ")...)
-	info = append(info, []byte(infoType)...)
-	info = append(info, 0)
+	info := append([]byte("Content-Encoding: "), []byte(infoType)...)
+  info = append(info, 0)
 	// For aes128gcm ctx is not needed.
 	if len(context) > 0 {
 		info = append(info, []byte("P-256")...)
@@ -330,9 +325,8 @@ func appendHeader(salt, serverPublicKey, ciphertext []byte) []byte {
 	var result []byte
 	// A push service is not required to support more than 4096 octets of
 	// payload body so the record size can be at most 4096.
-	rs := uint32(maxPayloadRecordSize)
 	rsbuf := make([]byte, 4)
-	binary.BigEndian.PutUint32(rsbuf, rs)
+	binary.BigEndian.PutUint32(rsbuf, uint32(maxPayloadRecordSize))
 	idlen := uint8(len(serverPublicKey))
 
 	result = append(result, salt...)
