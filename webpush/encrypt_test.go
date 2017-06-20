@@ -35,10 +35,16 @@ var (
 			"auth": "WPF9D0bTVZCV2pXSgj6Zug=="
 		}
 	}`)
-	message   = `I am the walrus`
-	rfcPublic = "BCEkBjzL8Z3C-oi2Q7oE5t2Np-p7osjGLg93qUP0wvqRT21EEWyf0cQDQcakQMqz4hQKYOQ3il2nNZct4HgAUQU"
-	rfcCipher = "6nqAQUME8hNqw5J3kl8cpVVJylXKYqZOeseZG8UueKpA"
-	rfcAuth   = "R29vIGdvbyBnJyBqb29iIQ"
+	message          = `I am the walrus`
+	aes128gcmMessage = `When I grow up, I want to be a watermelon`
+
+	rfcAESgcmPublic    = "BCEkBjzL8Z3C-oi2Q7oE5t2Np-p7osjGLg93qUP0wvqRT21EEWyf0cQDQcakQMqz4hQKYOQ3il2nNZct4HgAUQU"
+	rfcAES128gcmPublic = "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
+
+	rfcAESgcmCipher    = "6nqAQUME8hNqw5J3kl8cpVVJylXKYqZOeseZG8UueKpA"
+	rfcAES128gcmCipher = "DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN"
+	rfcAESgcmAuth      = "R29vIGdvbyBnJyBqb29iIQ"
+	rfcAES128gcmAuth   = "BTBZMqHH6r4Tts7J_aSIgg"
 )
 
 func mockSalt() ([]byte, error) {
@@ -111,14 +117,24 @@ func TestEncrypt(t *testing.T) {
 		t.Error("Couldn't decode JSON subscription")
 	}
 
-	// 4079 byted should be too big
-	_, err = Encrypt(sub, strings.Repeat(" ", 4079))
+	// 4079 bytes should be too big for aesgcm
+	_, err = Encrypt(sub, strings.Repeat(" ", 4079), AESGCM)
+	if err == nil {
+		t.Error("Expected to get an error due to long payload")
+	}
+	// 4079 bytes should be too big for aes128gcm
+	_, err = Encrypt(sub, strings.Repeat(" ", 4079), AES128GCM)
 	if err == nil {
 		t.Error("Expected to get an error due to long payload")
 	}
 
-	// 4078 bytes should be fine
-	_, err = Encrypt(sub, strings.Repeat(" ", 4078))
+	// 4078 bytes should be fine aesgcm
+	_, err = Encrypt(sub, strings.Repeat(" ", 4078), AESGCM)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	// 4057 bytes should be fine aes128gcm
+	_, err = Encrypt(sub, strings.Repeat(" ", 4057), AES128GCM)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -126,7 +142,7 @@ func TestEncrypt(t *testing.T) {
 	defer stubFuncs(mockSalt, mockKeys)()
 
 	// Use the library to encrypt the message
-	result, err := Encrypt(sub, message)
+	result, err := Encrypt(sub, message, AESGCM)
 	if err != nil {
 		t.Error(err)
 	}
@@ -156,11 +172,11 @@ func TestEncrypt(t *testing.T) {
 	}
 }
 
-func rfcSalt() ([]byte, error) {
+func rfcAESgcmSalt() ([]byte, error) {
 	return base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString("lngarbyKfMoi9Z75xYXmkg")
 }
 
-func rfcKeys() ([]byte, []byte, error) {
+func rfcAESgcmKeys() ([]byte, []byte, error) {
 	priv, _ := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString("nCScek-QpEjmOOlT-rQ38nZzvdPlqa00Zy0i6m2OJvY")
 
 	// Generate the right public key for the static private key
@@ -169,36 +185,80 @@ func rfcKeys() ([]byte, []byte, error) {
 	return priv, elliptic.Marshal(curve, x, y), nil
 }
 
-// TestRfcVectors uses the values given in the RFC for HTTP encryption to verify
+func rfcAES128gcmSalt() ([]byte, error) {
+	return base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString("DGv6ra1nlYgDCS1FRnbzlw")
+}
+
+func rfcAES128gcmKeys() ([]byte, []byte, error) {
+	priv, _ := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString("yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw")
+
+	// Generate the right public key for the static private key
+	x, y := curve.ScalarMult(curve.Params().Gx, curve.Params().Gy, priv)
+
+	return priv, elliptic.Marshal(curve, x, y), nil
+}
+
+// TestAESgcmRfcVectors uses the values given in the RFC for HTTP encryption to verify
 // that the code conforms to the RFC
 // See: https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding-02#appendix-B
-func TestRfcVectors(t *testing.T) {
-	defer stubFuncs(rfcSalt, rfcKeys)()
+func TestAESgcmRfcVectors(t *testing.T) {
+	defer stubFuncs(rfcAESgcmSalt, rfcAESgcmKeys)()
 
 	b64 := base64.URLEncoding.WithPadding(base64.NoPadding)
 
-	auth, err := b64.DecodeString(rfcAuth)
+	auth, err := b64.DecodeString(rfcAESgcmAuth)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	key, err := b64.DecodeString(rfcPublic)
+	key, err := b64.DecodeString(rfcAESgcmPublic)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	sub := &Subscription{Auth: auth, Key: key}
 
-	result, err := Encrypt(sub, message)
+	result, err := Encrypt(sub, message, AESGCM)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
-	expCiphertext, err := b64.DecodeString(rfcCipher)
+	expCiphertext, err := b64.DecodeString(rfcAESgcmCipher)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if !bytes.Equal(result.Ciphertext, expCiphertext) {
-		t.Errorf("Ciphertext was %v, expected %v", result.Ciphertext, expCiphertext)
+		t.Fatalf("Ciphertext was %v, expected %v", result.Ciphertext, expCiphertext)
+	}
+}
+
+// TestAES128gcmRfcVectors uses the values given in the RFC for HTTP encryption to verify
+// that the code conforms to the RFC
+// See: https://tools.ietf.org/html/draft-ietf-webpush-encryption-07#appendix-A
+func TestAES128gcmRfcVectors(t *testing.T) {
+	defer stubFuncs(rfcAES128gcmSalt, rfcAES128gcmKeys)()
+	b64 := base64.URLEncoding.WithPadding(base64.NoPadding)
+
+	auth, err := b64.DecodeString(rfcAES128gcmAuth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := b64.DecodeString(rfcAES128gcmPublic)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sub := &Subscription{Auth: auth, Key: key}
+	result, err := Encrypt(sub, aes128gcmMessage, AES128GCM)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expCiphertext, err := b64.DecodeString(rfcAES128gcmCipher)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(result.Ciphertext, expCiphertext) {
+		t.Fatalf("Ciphertext was %v, expected %v", b64.EncodeToString(result.Ciphertext), rfcAES128gcmCipher)
 	}
 }
 

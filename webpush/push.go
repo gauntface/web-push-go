@@ -55,7 +55,7 @@ func NewPushRequest(sub *Subscription, message string, token string) (*http.Requ
 		return req, nil
 	}
 
-	payload, err := Encrypt(sub, message)
+	payload, err := Encrypt(sub, message, AESGCM)
 	if err != nil {
 		return nil, err
 	}
