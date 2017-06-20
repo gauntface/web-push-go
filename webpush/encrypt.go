@@ -195,6 +195,16 @@ func Encrypt(sub *Subscription, message string, encoding ContentEncoding) (*Encr
 		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
 	}
 
+	plaintext := []byte(message)
+	var maxPayloadLength = aes128gcmMaxPayloadLength
+	if encoding == AESGCM {
+		maxPayloadLength = aesgcmMaxPayloadLength
+	}
+
+	if len(plaintext) > maxPayloadLength {
+		return nil, fmt.Errorf("Payload is too large. The max number of bytes is %d, input is %d bytes.", maxPayloadLength, len(plaintext))
+	}
+
 	salt, err := randomSalt()
 	if err != nil {
 		return nil, err
