@@ -1,0 +1,16 @@
+language: go
+
+go:
+  - 1.6.x
+  - 1.7.x
+  - 1.8.x
+  - master
+
+before_script:
+  - go get github.com/golang/lint/golint
+
+script:
+  - cd webpush
+  - golint -set_exit_status
+  - go vet
+  - go test -v
