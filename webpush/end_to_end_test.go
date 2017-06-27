@@ -18,15 +18,18 @@ import (
 	"testing"
 	"net/http"
 	"encoding/json"
-	"io/ioutil"
+	"bytes"
 	"fmt"
+	"encoding/base64"
+	// "io/ioutil"
 )
 
 var (
 	PortNumber = 9012
+	Payload = "Hello."
+
 	GcmSenderID = "759071690750"
 	GcmAPIKey = "AIzaSyBAU0VfXoskxUSg81K5VgLgwblHbZWe6tA"
-
 	GcmOptions = map[string]string{
 		"gcm": GcmAPIKey,
 	}
@@ -39,7 +42,10 @@ var (
 )
 
 func performTest(t *testing.T, browserName string, browserRelease string, options map[string]string) {
-	fmt.Println("Testing: ", browserName, "Release: ", browserRelease)
+	fmt.Println("");
+	fmt.Println("    Testing: ", browserName)
+	fmt.Println("    Release: ", browserRelease)
+	fmt.Println("");
 
 	testUrl := "http://localhost:9012"
 
@@ -54,16 +60,96 @@ func performTest(t *testing.T, browserName string, browserRelease string, option
 		return
 	}
 
-	decodeErr := json.NewDecoder(resp.Body)
+	type TestSuite struct {
+    Data struct {
+      TestSuiteId int
+    }
+	}
+
+	testSuite := &TestSuite{}
+	decodeErr := json.NewDecoder(resp.Body).Decode(testSuite);
 	if err != nil {
 		t.Errorf("Unable to parse response from /api/start-test-suite/: %v", decodeErr)
 		return
 	}
 
-	defer resp.Body.Close()
-	bodyBytes, _ := ioutil.ReadAll(resp.Body)
-  bodyString := string(bodyBytes)
-	fmt.Println("resp: ", bodyString)
+	// defer resp.Body.Close()
+	// bodyBytes, _ := ioutil.ReadAll(resp.Body)
+  // bodyString := string(bodyBytes)
+
+	fmt.Println("    [web-push-testing-service] Test Suite ID: ", testSuite.Data.TestSuiteId)
+	fmt.Println("");
+
+	subscriptionOptions := map[string]interface{} {
+		"testSuiteId": testSuite.Data.TestSuiteId,
+    "browserName": browserName,
+    "browserVersion": browserRelease,
+	}
+
+	// TODO: Test.....
+	// _, gcmPresent := options["gcm"]
+	// if (gcmPresent) {
+	// 	subscriptionOptions["gcmSenderId"] = GcmSenderID;
+	// }
+
+	jsonString, subscriptOptionsErr := json.Marshal(subscriptionOptions)
+	if subscriptOptionsErr != nil {
+		t.Errorf("Unable to encode subscription options: %v", subscriptOptionsErr)
+		return
+	}
+
+	resp, getSubErr := http.Post(testUrl + "/api/get-subscription/", "application/json", bytes.NewBuffer(jsonString))
+	if getSubErr != nil {
+		t.Errorf("Error when calling /api/get-subscription/: %v", err)
+		return
+	}
+
+	type SubscriptionResponse struct {
+    Data struct {
+      TestId int
+			Subscription struct {
+				Endpoint string
+				Keys struct {
+					Auth string
+					P256dh string
+				}
+			}
+    }
+	}
+
+	subscription := &SubscriptionResponse{}
+	decodeErr = json.NewDecoder(resp.Body).Decode(subscription);
+	if err != nil {
+		t.Errorf("Unable to parse response from /api/get-subscription/: %v", decodeErr)
+		return
+	}
+
+	fmt.Println("    [web-push-testing-service] TestID: ", subscription.Data.TestId)
+	fmt.Println("    [web-push-testing-service] Endpoint: ", subscription.Data.Subscription.Endpoint)
+	fmt.Println("    [web-push-testing-service] Auth: ", subscription.Data.Subscription.Keys.Auth)
+	fmt.Println("    [web-push-testing-service] P256DH: ", subscription.Data.Subscription.Keys.P256dh)
+	fmt.Println("");
+
+	decodeP256dh, err := base64.URLEncoding.DecodeString(subscription.Data.Subscription.Keys.P256dh)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	decodeAuth, err := base64.URLEncoding.DecodeString(subscription.Data.Subscription.Keys.Auth)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	libSub := &Subscription{subscription.Data.Subscription.Endpoint, decodeP256dh, decodeAuth}
+	_, err = Send(nil, libSub, Payload, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	fmt.Println("");
 }
 
 // Web Push
