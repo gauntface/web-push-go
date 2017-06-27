@@ -20,14 +20,14 @@ import (
 )
 
 var (
-	GCM_SENDER_ID = "759071690750"
-	GCM_API_KEY = "AIzaSyBAU0VfXoskxUSg81K5VgLgwblHbZWe6tA"
+	GcmSenderID = "759071690750"
+	GcmAPIKey = "AIzaSyBAU0VfXoskxUSg81K5VgLgwblHbZWe6tA"
 
-	GCM_OPTS = map[string]string{
-		"gcm": GCM_API_KEY,
+	GcmOptions = map[string]string{
+		"gcm": GcmAPIKey,
 	}
 
-	VAPID_OPTS = map[string]string{
+	VapidOptions = map[string]string{
 		"subject": "http://test.com",
     "publicKey": "BA6jvk34k6YjElHQ6S0oZwmrsqHdCNajxcod6KJnI77Dagikfb--O_kYXcR2eflRz6l3PcI2r8fPCH3BElLQHDk",
     "privateKey": "-3CdhFOqjzixgAbUSa0Zv9zi-dwDVmWO7672aBxSFPQ",
@@ -50,34 +50,34 @@ func TestWebPushFFBeta(t *testing.T) {
 
 // Web Push + GCM
 func TestWebPushAndGCMChromeStable(t *testing.T) {
-	performTest("chrome", "stable", GCM_OPTS);
+	performTest("chrome", "stable", GcmOptions);
 }
 
 func TestWebPushAndGCMChromeBeta(t *testing.T) {
-	performTest("chrome", "beta", GCM_OPTS);
+	performTest("chrome", "beta", GcmOptions);
 }
 
 func TestWebPushAndGCMFFStable(t *testing.T) {
-	performTest("firefox", "stable", GCM_OPTS);
+	performTest("firefox", "stable", GcmOptions);
 }
 
 func TestWebPushAndGCMFFBeta(t *testing.T) {
-	performTest("firefox", "beta", GCM_OPTS);
+	performTest("firefox", "beta", GcmOptions);
 }
 
 // Web Push + VAPID
 func TestWebPushAndVAPIDChromeStable(t *testing.T) {
-	performTest("chrome", "stable", VAPID_OPTS);
+	performTest("chrome", "stable", VapidOptions);
 }
 
 func TestWebPushAndVAPIDChromeBeta(t *testing.T) {
-	performTest("chrome", "beta", VAPID_OPTS);
+	performTest("chrome", "beta", VapidOptions);
 }
 
 func TestWebPushAndVAPIDFFStable(t *testing.T) {
-	performTest("firefox", "stable", VAPID_OPTS);
+	performTest("firefox", "stable", VapidOptions);
 }
 
 func TestWebPushAndVAPIDFFBeta(t *testing.T) {
-	performTest("firefox", "beta", VAPID_OPTS);
+	performTest("firefox", "beta", VapidOptions);
 }
