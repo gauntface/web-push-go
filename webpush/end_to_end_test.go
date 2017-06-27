@@ -16,10 +16,14 @@ package webpush
 
 import (
 	"testing"
+	"net/http"
+	"encoding/json"
+	"io/ioutil"
 	"fmt"
 )
 
 var (
+	PortNumber = 9012
 	GcmSenderID = "759071690750"
 	GcmAPIKey = "AIzaSyBAU0VfXoskxUSg81K5VgLgwblHbZWe6tA"
 
@@ -34,50 +38,73 @@ var (
 	}
 )
 
-func performTest(browserName string, browserRelease string, options map[string]string) {
+func performTest(t *testing.T, browserName string, browserRelease string, options map[string]string) {
 	fmt.Println("Testing: ", browserName, "Release: ", browserRelease)
 
+	testUrl := "http://localhost:9012"
+
+	resp, err := http.Post(testUrl + "/api/start-test-suite/", "application/json", nil)
+	if err != nil {
+		t.Errorf("Error when calling /api/start-test-suite/: %v", err)
+		return
+	}
+
+	if resp.Body == nil {
+		t.Errorf("No body from /api/start-test-suite/: %v", err)
+		return
+	}
+
+	decodeErr := json.NewDecoder(resp.Body)
+	if err != nil {
+		t.Errorf("Unable to parse response from /api/start-test-suite/: %v", decodeErr)
+		return
+	}
+
+	defer resp.Body.Close()
+	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+  bodyString := string(bodyBytes)
+	fmt.Println("resp: ", bodyString)
 }
 
 // Web Push
 func TestWebPushFFStable(t *testing.T) {
-	performTest("firefox", "stable", nil);
+	performTest(t, "firefox", "stable", nil);
 }
 
 func TestWebPushFFBeta(t *testing.T) {
-	performTest("firefox", "beta", nil);
+	performTest(t, "firefox", "beta", nil);
 }
 
 // Web Push + GCM
 func TestWebPushAndGCMChromeStable(t *testing.T) {
-	performTest("chrome", "stable", GcmOptions);
+	performTest(t, "chrome", "stable", GcmOptions);
 }
 
 func TestWebPushAndGCMChromeBeta(t *testing.T) {
-	performTest("chrome", "beta", GcmOptions);
+	performTest(t, "chrome", "beta", GcmOptions);
 }
 
 func TestWebPushAndGCMFFStable(t *testing.T) {
-	performTest("firefox", "stable", GcmOptions);
+	performTest(t, "firefox", "stable", GcmOptions);
 }
 
 func TestWebPushAndGCMFFBeta(t *testing.T) {
-	performTest("firefox", "beta", GcmOptions);
+	performTest(t, "firefox", "beta", GcmOptions);
 }
 
 // Web Push + VAPID
 func TestWebPushAndVAPIDChromeStable(t *testing.T) {
-	performTest("chrome", "stable", VapidOptions);
+	performTest(t, "chrome", "stable", VapidOptions);
 }
 
 func TestWebPushAndVAPIDChromeBeta(t *testing.T) {
-	performTest("chrome", "beta", VapidOptions);
+	performTest(t, "chrome", "beta", VapidOptions);
 }
 
 func TestWebPushAndVAPIDFFStable(t *testing.T) {
-	performTest("firefox", "stable", VapidOptions);
+	performTest(t, "firefox", "stable", VapidOptions);
 }
 
 func TestWebPushAndVAPIDFFBeta(t *testing.T) {
-	performTest("firefox", "beta", VapidOptions);
+	performTest(t, "firefox", "beta", VapidOptions);
 }
