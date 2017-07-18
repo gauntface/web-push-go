@@ -26,6 +26,7 @@ import (
 
 var (
 	PortNumber = 9012
+	TestUrl = "http://localhost:9012"
 	Payload = "Hello."
 
 	GcmSenderID = "759071690750"
@@ -41,156 +42,227 @@ var (
 	}
 )
 
-func performTest(t *testing.T, browserName string, browserRelease string, options map[string]string) {
-	fmt.Println("");
-	fmt.Println("    Testing: ", browserName)
-	fmt.Println("    Release: ", browserRelease)
-	fmt.Println("");
+type SubscriptionResponse struct {
+	Data struct {
+		TestId int
+		Subscription struct {
+			Endpoint string
+			Keys struct {
+				Auth string
+				P256dh string
+			}
+		}
+	}
+}
 
-	testUrl := "http://localhost:9012"
+type TestSuite struct {
+	Data struct {
+		TestSuiteId int
+	}
+}
 
-	resp, err := http.Post(testUrl + "/api/start-test-suite/", "application/json", nil)
+type NotificationResponse struct {
+	Data struct {
+		Messages []string
+	}
+}
+
+
+
+func startTestSuite(t *testing.T) (int) {
+	resp, err := http.Post(TestUrl + "/api/start-test-suite/", "application/json", nil)
 	if err != nil {
 		t.Errorf("Error when calling /api/start-test-suite/: %v", err)
-		return
 	}
 
 	if resp.Body == nil {
 		t.Errorf("No body from /api/start-test-suite/: %v", err)
-		return
-	}
-
-	type TestSuite struct {
-    Data struct {
-      TestSuiteId int
-    }
 	}
 
 	testSuite := &TestSuite{}
 	decodeErr := json.NewDecoder(resp.Body).Decode(testSuite);
 	if err != nil {
 		t.Errorf("Unable to parse response from /api/start-test-suite/: %v", decodeErr)
+	}
+
+	return testSuite.Data.TestSuiteId;
+}
+
+func endTestSuite(testSuiteId int) {
+	endSuiteOptions := map[string]interface{} {
+		"testSuiteId": testSuiteId,
+	}
+
+	jsonString, endSuiteOptionsErr := json.Marshal(endSuiteOptions)
+	if endSuiteOptionsErr != nil {
 		return
 	}
 
-	// defer resp.Body.Close()
-	// bodyBytes, _ := ioutil.ReadAll(resp.Body)
-  // bodyString := string(bodyBytes)
+	http.Post(TestUrl + "/api/end-test-suite/", "application/json", bytes.NewBuffer(jsonString))
+}
 
-	fmt.Println("    [web-push-testing-service] Test Suite ID: ", testSuite.Data.TestSuiteId)
-	fmt.Println("");
-
+func getTestSubscription(t *testing.T, testSuiteId int, browserName string, browserRelease string, options map[string]string) (*SubscriptionResponse) {
 	subscriptionOptions := map[string]interface{} {
-		"testSuiteId": testSuite.Data.TestSuiteId,
+		"testSuiteId": testSuiteId,
     "browserName": browserName,
     "browserVersion": browserRelease,
 	}
 
-	// TODO: Test.....
-	// _, gcmPresent := options["gcm"]
-	// if (gcmPresent) {
-	// 	subscriptionOptions["gcmSenderId"] = GcmSenderID;
-	// }
+	_, gcmPresent := options["gcm"]
+	if (gcmPresent) {
+		subscriptionOptions["gcmSenderId"] = GcmSenderID;
+	}
 
 	jsonString, subscriptOptionsErr := json.Marshal(subscriptionOptions)
 	if subscriptOptionsErr != nil {
 		t.Errorf("Unable to encode subscription options: %v", subscriptOptionsErr)
-		return
 	}
 
-	resp, getSubErr := http.Post(testUrl + "/api/get-subscription/", "application/json", bytes.NewBuffer(jsonString))
+	resp, getSubErr := http.Post(TestUrl + "/api/get-subscription/", "application/json", bytes.NewBuffer(jsonString))
 	if getSubErr != nil {
-		t.Errorf("Error when calling /api/get-subscription/: %v", err)
-		return
-	}
-
-	type SubscriptionResponse struct {
-    Data struct {
-      TestId int
-			Subscription struct {
-				Endpoint string
-				Keys struct {
-					Auth string
-					P256dh string
-				}
-			}
-    }
+		t.Errorf("Error when calling /api/get-subscription/: %v", getSubErr)
 	}
 
 	subscription := &SubscriptionResponse{}
-	decodeErr = json.NewDecoder(resp.Body).Decode(subscription);
-	if err != nil {
+	decodeErr := json.NewDecoder(resp.Body).Decode(subscription);
+	if decodeErr != nil {
 		t.Errorf("Unable to parse response from /api/get-subscription/: %v", decodeErr)
-		return
 	}
 
-	fmt.Println("    [web-push-testing-service] TestID: ", subscription.Data.TestId)
-	fmt.Println("    [web-push-testing-service] Endpoint: ", subscription.Data.Subscription.Endpoint)
-	fmt.Println("    [web-push-testing-service] Auth: ", subscription.Data.Subscription.Keys.Auth)
-	fmt.Println("    [web-push-testing-service] P256DH: ", subscription.Data.Subscription.Keys.P256dh)
+	return  subscription;
+}
+
+func getNotificationStatus(t *testing.T, testSuiteId int, testId int) ([]string) {
+	notificationData := map[string]interface{} {
+		"testSuiteId": testSuiteId,
+    "testId": testId,
+	}
+
+	jsonString, notifErr := json.Marshal(notificationData)
+	if notifErr != nil {
+		t.Errorf("Unable to encode subscription options: %v", notificationData)
+	}
+
+	resp, notifErr := http.Post(TestUrl + "/api/get-notification-status/", "application/json", bytes.NewBuffer(jsonString))
+	if notifErr != nil {
+		t.Errorf("Error when calling /api/get-notification-status/: %v", notifErr)
+	}
+
+	/** defer resp.Body.Close()
+	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+  bodyString := string(bodyBytes)
+	fmt.Println(bodyString);**/
+
+	notification := &NotificationResponse{}
+	decodeErr := json.NewDecoder(resp.Body).Decode(notification);
+	if decodeErr != nil {
+		t.Errorf("Unable to parse response from /api/get-notification-status/: %v", decodeErr)
+	}
+
+	return notification.Data.Messages
+}
+
+func performTest(t *testing.T, testSuiteId int, browserName string, browserRelease string, options map[string]string) {
+	fmt.Println("");
+	fmt.Println("    Testing: ", browserName)
+	fmt.Println("    Release: ", browserRelease)
 	fmt.Println("");
 
-	decodeP256dh, err := base64.URLEncoding.DecodeString(subscription.Data.Subscription.Keys.P256dh)
+	subscriptionDetails := getTestSubscription(t, testSuiteId, browserName, browserRelease, options)
+
+	fmt.Println("    [web-push-testing-service] TestID: ", subscriptionDetails.Data.TestId)
+	fmt.Println("    [web-push-testing-service] Endpoint: ", subscriptionDetails.Data.Subscription.Endpoint)
+	fmt.Println("    [web-push-testing-service] Auth: ", subscriptionDetails.Data.Subscription.Keys.Auth)
+	fmt.Println("    [web-push-testing-service] P256DH: ", subscriptionDetails.Data.Subscription.Keys.P256dh)
+	fmt.Println("");
+
+	decodeP256dh, err := base64.RawURLEncoding.DecodeString(subscriptionDetails.Data.Subscription.Keys.P256dh)
 	if err != nil {
 		t.Error(err)
-		return
 	}
 
-	decodeAuth, err := base64.URLEncoding.DecodeString(subscription.Data.Subscription.Keys.Auth)
+	decodeAuth, err := base64.RawURLEncoding.DecodeString(subscriptionDetails.Data.Subscription.Keys.Auth)
 	if err != nil {
 		t.Error(err)
-		return
 	}
 
-	libSub := &Subscription{subscription.Data.Subscription.Endpoint, decodeP256dh, decodeAuth}
+	libSub := &Subscription{subscriptionDetails.Data.Subscription.Endpoint, decodeP256dh, decodeAuth}
 	_, err = Send(nil, libSub, Payload, "")
 	if err != nil {
 		t.Error(err)
-		return
 	}
 
+	notificationMsgs := getNotificationStatus(t, testSuiteId, subscriptionDetails.Data.TestId);
+	if len(notificationMsgs) != 1 {
+		t.Error("Expected messages to have a length of 1.")
+	}
+  
+	if notificationMsgs[0] != Payload {
+		t.Error("Invalid message payload.")
+	}
 	fmt.Println("");
 }
 
 // Web Push
 func TestWebPushFFStable(t *testing.T) {
-	performTest(t, "firefox", "stable", nil);
+	testSuiteId := startTestSuite(t)
+
+	fmt.Println("    [web-push-testing-service] Test Suite ID: ", testSuiteId)
+	fmt.Println("");
+
+	performTest(t, testSuiteId, "firefox", "stable", nil);
+
+	endTestSuite(testSuiteId)
 }
 
 func TestWebPushFFBeta(t *testing.T) {
-	performTest(t, "firefox", "beta", nil);
+	testSuiteId := startTestSuite(t)
+
+	fmt.Println("    [web-push-testing-service] Test Suite ID: ", testSuiteId)
+	fmt.Println("");
+
+	performTest(t, testSuiteId, "firefox", "beta", nil);
+
+	endTestSuite(testSuiteId)
 }
 
 // Web Push + GCM
 func TestWebPushAndGCMChromeStable(t *testing.T) {
-	performTest(t, "chrome", "stable", GcmOptions);
+	testSuiteId := startTestSuite(t)
+
+	fmt.Println("    [web-push-testing-service] Test Suite ID: ", testSuiteId)
+	fmt.Println("");
+
+	performTest(t, testSuiteId, "chrome", "stable", GcmOptions);
+
+	endTestSuite(testSuiteId)
 }
 
 func TestWebPushAndGCMChromeBeta(t *testing.T) {
-	performTest(t, "chrome", "beta", GcmOptions);
+	// performTest(t, "chrome", "beta", GcmOptions);
 }
 
 func TestWebPushAndGCMFFStable(t *testing.T) {
-	performTest(t, "firefox", "stable", GcmOptions);
+	// performTest(t, "firefox", "stable", GcmOptions);
 }
 
 func TestWebPushAndGCMFFBeta(t *testing.T) {
-	performTest(t, "firefox", "beta", GcmOptions);
+	// performTest(t, "firefox", "beta", GcmOptions);
 }
 
 // Web Push + VAPID
 func TestWebPushAndVAPIDChromeStable(t *testing.T) {
-	performTest(t, "chrome", "stable", VapidOptions);
+	// performTest(t, "chrome", "stable", VapidOptions);
 }
 
 func TestWebPushAndVAPIDChromeBeta(t *testing.T) {
-	performTest(t, "chrome", "beta", VapidOptions);
+	// performTest(t, "chrome", "beta", VapidOptions);
 }
 
 func TestWebPushAndVAPIDFFStable(t *testing.T) {
-	performTest(t, "firefox", "stable", VapidOptions);
+	// performTest(t, "firefox", "stable", VapidOptions);
 }
 
 func TestWebPushAndVAPIDFFBeta(t *testing.T) {
-	performTest(t, "firefox", "beta", VapidOptions);
+	// performTest(t, "firefox", "beta", VapidOptions);
 }
