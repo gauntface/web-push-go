@@ -17,6 +17,7 @@ package webpush
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -84,7 +85,20 @@ func Send(client *http.Client, sub *Subscription, message, token string) (*http.
 		return nil, err
 	}
 
-	return client.Do(req)
+	response, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode != 201 {
+		defer response.Body.Close()
+		bodyBytes, _ := ioutil.ReadAll(response.Body)
+    bodyString := string(bodyBytes)
+		return nil, errors.New("The response was not a '201' status code. " +
+			"Response body: " + bodyString)
+	}
+
+	return response, nil
 }
 
 // A helper for creating the value part of the HTTP encryption headers

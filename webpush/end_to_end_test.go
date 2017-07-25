@@ -30,9 +30,8 @@ var (
 	Payload = "Hello."
 
 	GcmSenderID = "759071690750"
-	GcmAPIKey = "AIzaSyBAU0VfXoskxUSg81K5VgLgwblHbZWe6tA"
 	GcmOptions = map[string]string{
-		"gcm": GcmAPIKey,
+		"gcm": "AIzaSyBAU0VfXoskxUSg81K5VgLgwblHbZWe6tA",
 	}
 
 	VapidOptions = map[string]string{
@@ -73,16 +72,19 @@ func startTestSuite(t *testing.T) (int) {
 	resp, err := http.Post(TestUrl + "/api/start-test-suite/", "application/json", nil)
 	if err != nil {
 		t.Errorf("Error when calling /api/start-test-suite/: %v", err)
+		t.FailNow()
 	}
 
 	if resp.Body == nil {
 		t.Errorf("No body from /api/start-test-suite/: %v", err)
+		t.FailNow()
 	}
 
 	testSuite := &TestSuite{}
 	decodeErr := json.NewDecoder(resp.Body).Decode(testSuite);
 	if err != nil {
 		t.Errorf("Unable to parse response from /api/start-test-suite/: %v", decodeErr)
+		t.FailNow()
 	}
 
 	return testSuite.Data.TestSuiteId;
@@ -116,17 +118,20 @@ func getTestSubscription(t *testing.T, testSuiteId int, browserName string, brow
 	jsonString, subscriptOptionsErr := json.Marshal(subscriptionOptions)
 	if subscriptOptionsErr != nil {
 		t.Errorf("Unable to encode subscription options: %v", subscriptOptionsErr)
+		t.FailNow()
 	}
 
 	resp, getSubErr := http.Post(TestUrl + "/api/get-subscription/", "application/json", bytes.NewBuffer(jsonString))
 	if getSubErr != nil {
 		t.Errorf("Error when calling /api/get-subscription/: %v", getSubErr)
+		t.FailNow()
 	}
 
 	subscription := &SubscriptionResponse{}
 	decodeErr := json.NewDecoder(resp.Body).Decode(subscription);
 	if decodeErr != nil {
 		t.Errorf("Unable to parse response from /api/get-subscription/: %v", decodeErr)
+		t.FailNow()
 	}
 
 	return  subscription;
@@ -141,11 +146,13 @@ func getNotificationStatus(t *testing.T, testSuiteId int, testId int) ([]string)
 	jsonString, notifErr := json.Marshal(notificationData)
 	if notifErr != nil {
 		t.Errorf("Unable to encode subscription options: %v", notificationData)
+		t.FailNow()
 	}
 
 	resp, notifErr := http.Post(TestUrl + "/api/get-notification-status/", "application/json", bytes.NewBuffer(jsonString))
 	if notifErr != nil {
 		t.Errorf("Error when calling /api/get-notification-status/: %v", notifErr)
+		t.FailNow()
 	}
 
 	/** defer resp.Body.Close()
@@ -157,6 +164,7 @@ func getNotificationStatus(t *testing.T, testSuiteId int, testId int) ([]string)
 	decodeErr := json.NewDecoder(resp.Body).Decode(notification);
 	if decodeErr != nil {
 		t.Errorf("Unable to parse response from /api/get-notification-status/: %v", decodeErr)
+		t.FailNow()
 	}
 
 	return notification.Data.Messages
@@ -176,29 +184,47 @@ func performTest(t *testing.T, testSuiteId int, browserName string, browserRelea
 	fmt.Println("    [web-push-testing-service] P256DH: ", subscriptionDetails.Data.Subscription.Keys.P256dh)
 	fmt.Println("");
 
-	decodeP256dh, err := base64.RawURLEncoding.DecodeString(subscriptionDetails.Data.Subscription.Keys.P256dh)
+	decodeP256dh, err := base64.URLEncoding.DecodeString(subscriptionDetails.Data.Subscription.Keys.P256dh)
 	if err != nil {
-		t.Error(err)
+		decodeP256dh, err = base64.RawURLEncoding.DecodeString(subscriptionDetails.Data.Subscription.Keys.P256dh)
+		if err != nil {
+			t.Error("Unable to decode P256dh")
+			t.FailNow()
+		}
 	}
 
-	decodeAuth, err := base64.RawURLEncoding.DecodeString(subscriptionDetails.Data.Subscription.Keys.Auth)
+	decodeAuth, err := base64.URLEncoding.DecodeString(subscriptionDetails.Data.Subscription.Keys.Auth)
 	if err != nil {
-		t.Error(err)
+		decodeAuth, err = base64.RawURLEncoding.DecodeString(subscriptionDetails.Data.Subscription.Keys.Auth)
+		if err != nil {
+			t.Error("Unable to decode Auth")
+			t.FailNow()
+		}
 	}
 
 	libSub := &Subscription{subscriptionDetails.Data.Subscription.Endpoint, decodeP256dh, decodeAuth}
-	_, err = Send(nil, libSub, Payload, "")
+
+	gcmAPIKey := ""
+	_, gcmPresent := options["gcm"]
+	if (gcmPresent) {
+		gcmAPIKey = options["gcm"];
+	}
+
+	_, err = Send(nil, libSub, Payload, gcmAPIKey)
 	if err != nil {
 		t.Error(err)
+		t.FailNow()
 	}
 
 	notificationMsgs := getNotificationStatus(t, testSuiteId, subscriptionDetails.Data.TestId);
 	if len(notificationMsgs) != 1 {
 		t.Error("Expected messages to have a length of 1.")
+		t.FailNow()
 	}
-  
+
 	if notificationMsgs[0] != Payload {
 		t.Error("Invalid message payload.")
+		t.FailNow()
 	}
 	fmt.Println("");
 }
@@ -236,6 +262,8 @@ func TestWebPushAndGCMChromeStable(t *testing.T) {
 	performTest(t, testSuiteId, "chrome", "stable", GcmOptions);
 
 	endTestSuite(testSuiteId)
+	// This doesn't work at the moment. Not sure what is wrong with the API
+	// but looks like the key is getting crushed up some how.
 }
 
 func TestWebPushAndGCMChromeBeta(t *testing.T) {

@@ -26,7 +26,7 @@ import (
 func TestSendWebPush(t *testing.T) {
 	// Test server checks that the request is well-formed
 	ts := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.WriteHeader(200)
+		writer.WriteHeader(201)
 
 		defer request.Body.Close()
 
@@ -80,7 +80,7 @@ func TestSendWebPush(t *testing.T) {
 func TestSendTickle(t *testing.T) {
 	// Test server checks that the request is well-formed
 	ts := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.WriteHeader(200)
+		writer.WriteHeader(201)
 
 		defer request.Body.Close()
 
