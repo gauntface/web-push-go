@@ -1,12 +1,14 @@
-Push Encryption (Go)
-----------------------
+> ⚠️ This project is no longer maintained!
+>
+> [An alternative is webpush-go](https://github.com/SherClockHolmes/webpush-go)
+
+## Push Encryption (Go)
 
 This library provides the functions necessary to encrypt a payload for sending
 with the Web Push protocol. It also includes a helper function for creating new
 HTTP requests to send the message to the Web Push endpoint.
 
-What is this for?
------------------
+## What is this for?
 
 The [Push API](http://w3c.github.io/push-api/) allow users to subscribe for
 notifications from a web site, which can be delivered to them even if the
@@ -18,8 +20,7 @@ server must encrypt the payload or the receiving browser will reject it.
 
 This library implements the necessary encryption as a Go package.
 
-Overview
---------
+## Overview
 
 Send a message:
 
@@ -53,13 +54,11 @@ if strings.Contains(sub.Endpoint, "https://android.googleapis.com/gcm/send/") {
 }
 ```
 
-Docs
------
+## Docs
 
 You can [find docs here](https://godoc.org/github.com/GoogleChrome/push-encryption-go/webpush).
 
-Support
--------
+## Support
 
 If you've found an error in this library, please file an issue:
 https://github.com/GoogleChrome/push-encryption-go/issues
@@ -67,8 +66,7 @@ https://github.com/GoogleChrome/push-encryption-go/issues
 Patches are encouraged, and may be submitted by forking this project and
 submitting a pull request through GitHub.
 
-License
--------
+## License
 
 Copyright 2016 Google, Inc.
 
